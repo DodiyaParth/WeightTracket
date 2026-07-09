@@ -1,6 +1,6 @@
 # Chart / Graph — Design Feedback (dedicated)
 
-**Date:** 2026-06-30 · **From:** Product · **Spec:** `../REQUIREMENTS.md` §6.1–6.2, §6.5, §8
+**Date:** 2026-06-30 · **From:** Product · **Spec:** `requirements.md` §6.1–6.2, §6.5, §8
 **Scope:** the weight-trend graph only. Parth flagged this as the area needing the most work — this doc is the deep pass. Findings are grounded in the current `components/Chart.jsx`.
 
 > Production reminder: the real chart is **Chart.js + chartjs-plugin-annotation + chartjs-plugin-zoom** via `react-chartjs-2`. The prototype hand-draws SVG just to show layout — but the design must specify the behaviors below so the Chart.js build is unambiguous.

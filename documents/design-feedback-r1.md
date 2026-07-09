@@ -1,6 +1,6 @@
 # Design Feedback — Round 1 (on the current prototype)
 
-**Date:** 2026-06-30 · **From:** Product · **Spec:** `../REQUIREMENTS.md` · builds on `DESIGNER-BRIEF.md`
+**Date:** 2026-06-30 · **From:** Product · **Spec:** `requirements.md` · builds on `design-designer-brief.md`
 
 Feedback on the as-built prototype. One headline product change (§0) plus page-level fixes. Items
 combine Parth's notes with my review. Dashboard interior stays a placeholder this round (confirmed).
@@ -87,7 +87,7 @@ Confirmed: the dashboard interior stays as the current mock; we iterate next pha
 
 ---
 
-## What I changed in REQUIREMENTS.md
+## What I changed in requirements.md
 - **§2 Key Decisions** — "Edit access" row rewritten (weight self-only; edit role = dashboard-level).
 - **§3.1–§3.4** — self-only weight ownership; dashboard edit scope clarified; worked example + the
   data-layer technical note updated (owner-write, read via denormalized viewer list).

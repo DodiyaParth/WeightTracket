@@ -1,6 +1,6 @@
 // Firebase initialization. Config comes from Vite env vars (see .env.example).
 // The client API key is safe to ship in the browser — real security lives in
-// Firestore Security Rules (REQUIREMENTS.md §7).
+// Firestore Security Rules (../../documents/requirements.md §7).
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';

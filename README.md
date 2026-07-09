@@ -1,7 +1,7 @@
 # WeightTracker
 
 A static, no-server weight-loss web app: **React + Vite + Firebase (Auth + Firestore)**, deployed to
-GitHub Pages. Product spec: [`REQUIREMENTS.md`](REQUIREMENTS.md).
+GitHub Pages. Product spec: [`documents/requirements.md`](documents/requirements.md).
 
 ## Layout
 

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "WeightTracker — a static, no-server weight-loss web app (React + Vite + Firebase). See ../REQUIREMENTS.md.",
+  "description": "WeightTracker — a static, no-server weight-loss web app (React + Vite + Firebase). See ../documents/requirements.md.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

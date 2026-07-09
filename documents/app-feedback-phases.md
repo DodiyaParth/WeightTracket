@@ -1,13 +1,13 @@
 # WeightTracker — Phased Execution Plan
 
-Companion to `FEEDBACK-actionplan.md` (which maps every feedback item to code) and `FEEDBACK-developer.md` (the raw feedback). **This doc is the build order**, written so a developer new to the codebase can pick up a phase and execute it top to bottom.
+Companion to `app-feedback-action-plan.md` (which maps every feedback item to code) and `app-feedback-developer.md` (the raw feedback). **This doc is the build order**, written so a developer new to the codebase can pick up a phase and execute it top to bottom.
 
 ## How to use this document
 - Work phases **in order** — later phases depend on infrastructure built earlier.
 - Within a phase, do tasks in the numbered order (dependencies flow downward).
 - Every task lists: **Files**, **Steps**, **Test**, and **Done when**. Do not mark a task done until its "Done when" is true.
 - `🔒` marks work that needs **live Firestore + real sign-in** to verify (can't be proven by unit tests alone).
-- Item codes like `DEV-3`, `F2` refer back to `FEEDBACK-actionplan.md` — read that entry for the "why".
+- Item codes like `DEV-3`, `F2` refer back to `app-feedback-action-plan.md` — read that entry for the "why".
 
 ## Project conventions (read once)
 - **Run:** `cd application && npm run dev` → http://localhost:5181. **Test:** `npm test` (Vitest). **Build:** `npm run build`.

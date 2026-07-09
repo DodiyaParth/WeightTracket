@@ -2,10 +2,11 @@
 
 A **throwaway** design prototype to explore the desktop UI, feature placement, and every user-journey
 state. Not production code: no backend, no real auth, all data hardcoded in `data.js`. The real app
-(per `../REQUIREMENTS.md`) will be React + Vite + Firebase, with the chart on **Chart.js + zoom/annotation plugins**.
+(per `../documents/requirements.md`) will be React + Vite + Firebase, with the chart on **Chart.js + zoom/annotation plugins**.
 
-> **Status: R3 complete.** Implements `DESIGNER-BRIEF.md`, `DESIGN-FEEDBACK-R1/R2/R3.md`, and
-> `CHART-FEEDBACK.md`. Desktop only (cards are self-contained blocks built to stack into one mobile
+> **Status: R3 complete.** Implements `../documents/design-designer-brief.md`,
+> `../documents/design-feedback-r1.md` / `design-instructions-r2.md` / `design-feedback-r3.md`, and
+> `../documents/design-chart-feedback.md`. Desktop only (cards are self-contained blocks built to stack into one mobile
 > column next pass). The chart + quick-log flows were refined against best-practice research
 > (TradingView/Apple Health/Google Finance scrubber+tooltip patterns; Apple Health/Oura/MFP quick-entry).
 
@@ -45,7 +46,7 @@ single **Save** (closes + toast), and an **Advanced** link → `/add` for bulk/C
 an entry reuses the same modal. All five add-triggers route here.
 
 ## The chart (`components/Chart.jsx`)
-Rebuilt against CHART-FEEDBACK: **kg y-axis + date x-axis**, a **"Today" divider** (real → projection),
+Rebuilt against design-chart-feedback: **kg y-axis + date x-axis**, a **"Today" divider** (real → projection),
 a **line-style key** (Trend / Daily / Ideal / Projected), a snapped **hover crosshair + multi-series
 tooltip**, a **scrubber strip** (drag the window to pan/resize) + **range presets** (4W/3M/6M/All, no
 scroll-hijack) + a **Smoothing** control. Honesty: projection is a **fading fan, not a confident line**,

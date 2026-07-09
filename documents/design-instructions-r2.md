@@ -1,7 +1,7 @@
 # Design Instructions — Round 2: Complete Dashboard + All Journeys + Robustness
 
-**Date:** 2026-06-30 · **From:** Product · **Spec:** `../REQUIREMENTS.md`
-**Reads after:** `DESIGNER-BRIEF.md`, `DESIGN-FEEDBACK-R1.md`
+**Date:** 2026-06-30 · **From:** Product · **Spec:** `requirements.md`
+**Reads after:** `design-designer-brief.md`, `design-feedback-r1.md`
 
 This round we **build the full dashboard interior** (the part we kept as a placeholder before) and
 make the **whole prototype robust** across every user journey. This **lifts the R1 deferrals** of the

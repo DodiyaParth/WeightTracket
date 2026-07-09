@@ -1,7 +1,7 @@
 # WeightTracker (application/) — Designer Feedback
 
-**Date:** 2026-07-01 · **From:** Product · **Spec:** `../REQUIREMENTS.md`
-**Scope:** the built app in `application/`. Covers the two stakeholder points (numeric display, edit/confirm) plus error-state and a11y/polish. Implementation notes for the developer are in the companion `FEEDBACK-developer.md`.
+**Date:** 2026-07-01 · **From:** Product · **Spec:** `requirements.md`
+**Scope:** the built app in `application/`. Covers the two stakeholder points (numeric display, edit/confirm) plus error-state and a11y/polish. Implementation notes for the developer are in the companion `app-feedback-developer.md`.
 
 ---
 

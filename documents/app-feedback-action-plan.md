@@ -1,6 +1,6 @@
 # WeightTracker — Feedback → Code Action Plan
 
-**Source:** `FEEDBACK-developer.md` (DEV-1 → DEV-38, two audit passes).
+**Source:** `app-feedback-developer.md` (DEV-1 → DEV-38, two audit passes).
 **This doc:** for every feedback item, the concrete code action items — files, functions, and the specific change. Grouped so shared infrastructure is built once and reused.
 **Order:** P0 (blockers) → P1 (functional/req/a11y) → P2 (robustness) → P3 (polish/format).
 

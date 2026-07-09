@@ -1,5 +1,5 @@
 // Shared display formatting: weight precision + intent-carrying change formatting.
-// Pure, no React/Firebase — see FEEDBACK-actionplan.md S-B / DEV-19 / F2.
+// Pure, no React/Firebase — see ../../documents/app-feedback-action-plan.md S-B / DEV-19 / F2.
 
 export const WEIGHT_DP = 2;
 

@@ -1,8 +1,8 @@
 # Design Feedback — Round 3 (full prototype review)
 
-**Date:** 2026-06-30 · **From:** Product · **Spec:** `../REQUIREMENTS.md`
+**Date:** 2026-06-30 · **From:** Product · **Spec:** `requirements.md`
 **Method:** full read of every page/component against the spec, looking for requirement gaps, fresh-user confusion, and pixel/UX inconsistency.
-**Graph:** has its own deep doc — see **`CHART-FEEDBACK.md`**. This doc covers everything else.
+**Graph:** has its own deep doc — see **`design-chart-feedback.md`**. This doc covers everything else.
 
 Tags: **[req]** diverges from requirements · **[confusion]** would confuse a new user · **[polish]** consistency / pixel-perfect.
 
@@ -13,9 +13,9 @@ Tags: **[req]** diverges from requirements · **[confusion]** would confuse a ne
 | # | Your point | Verdict | Section |
 |---|---|---|---|
 | 1.1 | Stats show only current user, not collaborator | **Partly** — a person switch exists; 3 of 4 tiles follow it, the 4th + Progress don't | B3 |
-| 1.2 | Graph has no legend for the lines | **Refined** — person legend exists; line-type key missing | CHART-FEEDBACK |
-| 1.3 | Graph has no timeline slider / custom zoom / navigation | **Confirmed & worse** | CHART-FEEDBACK |
-| 1.4 | "gap-interpolated" written on graph | **Confirmed** (+ a 2nd raw label) | CHART-FEEDBACK |
+| 1.2 | Graph has no legend for the lines | **Refined** — person legend exists; line-type key missing | design-chart-feedback |
+| 1.3 | Graph has no timeline slider / custom zoom / navigation | **Confirmed & worse** | design-chart-feedback |
+| 1.4 | "gap-interpolated" written on graph | **Confirmed** (+ a 2nd raw label) | design-chart-feedback |
 | 1.5 | Motivation can differ per person | **Confirmed** — it's a single shared state today | B2 |
 | 1.6 | Progress/prediction can differ per person | **Confirmed** — ignores the person switch | B3 |
 | 1.7 | Habit tick for any date (today default) | **Confirmed** — today-only today | B4 |
@@ -72,7 +72,7 @@ Tile says "9 days ahead of ideal" (`:48`) while Progress says "on track vs ideal
 In the new-dashboard state the Goals empty card and Habits empty card use different icon/padding treatments (`DashboardBody.jsx:101-111` vs `HabitsSection.jsx:89-100`). Unify — this is the first-run moment.
 
 ### B10 — [req] Per-person surfaces are hardcoded to two people — *note (scaling)*
-Goals, the goal editor, the focus switch, and "people shown" are hardcoded to `me`+`partner` (`DashboardBody.jsx:120-121`, `GoalEditor.jsx:62-64`). The data model already has 3–4 member dashboards. Couple is the v1 case, but design these to map over the dashboard's tracked people so a 3rd person doesn't fall off. (Same root issue as CHART-FEEDBACK D1.)
+Goals, the goal editor, the focus switch, and "people shown" are hardcoded to `me`+`partner` (`DashboardBody.jsx:120-121`, `GoalEditor.jsx:62-64`). The data model already has 3–4 member dashboards. Couple is the v1 case, but design these to map over the dashboard's tracked people so a 3rd person doesn't fall off. (Same root issue as design-chart-feedback D1.)
 
 **Verified-good (no action):** all six motivation states exist; milestone ladder 5%/10%; forgiving streaks with a distinct grace cell (a11y-safe, not color-only); unsafe-pace amber; goal-editor pace check; disclaimer present; **no theme/accent picker** (correct); **self-only** (no person picker anywhere); read-only gating is consistent.
 
@@ -182,7 +182,7 @@ Reserve `.pill` for transient statuses (within safe range, need more data, Pendi
 
 ---
 
-## What I updated in REQUIREMENTS.md this round
+## What I updated in requirements.md this round
 - **§6.4** — motivation runs **per person** (states can diverge); **no social-nudge/clap prompts** (your 1.5, 1.9).
 - **§5** — habit check-off supports **any date** (today default) (your 1.7).
 - **§4** — quick-add **popup** + an **Advanced** action → full entry page; trim clutter; no "Today's weight" framing (your 1.8, 1.10).
@@ -191,4 +191,4 @@ Reserve `.pill` for transient statuses (within safe range, need more data, Pendi
 ## Suggested fix order
 1. **Critical structural:** per-person dashboard (B2, B3) + strip claps (B1); QuickLogModal (C1); split Create/Share into modals & drop `/share` (D1–D4); profile-via-chip + slim the sidebar (E1, E2).
 2. **High:** habit any-date (B4), wire NSV (B5), compute BMI (B6); add-weight title/clutter/layout/edit (C2–C5); invites (D5); fence the public proto toggle (D6); `&amp;` bug (F1).
-3. **Polish pass:** B7–B9, C6–C8, D7–D8, E3–E4, F2–F5 — and the whole of `CHART-FEEDBACK.md`.
+3. **Polish pass:** B7–B9, C6–C8, D7–D8, E3–E4, F2–F5 — and the whole of `design-chart-feedback.md`.

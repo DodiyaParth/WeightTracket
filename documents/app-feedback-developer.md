@@ -1,6 +1,6 @@
 # WeightTracker (application/) — Developer Feedback
 
-**Date:** 2026-07-01 · **From:** Product · **Spec:** `../REQUIREMENTS.md`
+**Date:** 2026-07-01 · **From:** Product · **Spec:** `requirements.md`
 **Method:** code review of the running build (`application/src` + `firestore.rules`) via three parallel audits — mutation/edit coverage, numeric display, and security/correctness/integration. *(The live browser wasn't reachable this pass, so this is source-level; behavior should be re-confirmed in the app once a browser or demo instance is available.)*
 
 Priorities: **P0 = do not ship**, **P1 = functional gaps (the stakeholder's "add but can't modify")**, **P2 = robustness**, **P3 = formatting.**

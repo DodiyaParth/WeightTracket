@@ -1,6 +1,6 @@
 # Designer Brief — WeightTracker full prototype (high-level pass)
 
-**Date:** 2026-06-30 · **From:** Product · **Spec:** `../REQUIREMENTS.md`
+**Date:** 2026-06-30 · **From:** Product · **Spec:** `requirements.md`
 
 ## Goal of this round
 Lock the **high-level page structure, navigation, and the collaboration model** end to end. Build the
@@ -27,7 +27,7 @@ shape is approved.
   detailed habit UI is part of the deferred dashboard-interior pass.
 - In-dashboard warning/empty micro-states (unsafe-pace, honest-projection visuals, not-enough-data).
 
-> These deferrals **override** the matching items in `PM-DESIGN-REVIEW.md`. That review stays as the
+> These deferrals **override** the matching items in `design-pm-review.md`. That review stays as the
 > backlog for the later dashboard-interior pass — **except B3 (read-only view), which is in scope now.**
 
 ---

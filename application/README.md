@@ -1,7 +1,7 @@
 # WeightTracker — Application
 
 A static, no-server weight-loss web app: **React + Vite + Firebase (Auth + Firestore)**, deployed to
-GitHub Pages. Product spec: [`../REQUIREMENTS.md`](../REQUIREMENTS.md). The design system is mirrored
+GitHub Pages. Product spec: [`../documents/requirements.md`](../documents/requirements.md). The design system is mirrored
 from the designer's prototype in [`../design`](../design) (designer-owned — not edited here).
 
 > **Status: Milestones 1–4 built.** Login + auth shell, personal data & weight entry (single / bulk /
@@ -107,4 +107,4 @@ reads a `publicViews/{token}` snapshot (REQUIREMENTS §3.4).
   against real Firestore; every screen renders end-to-end (login, dashboards list, dashboard interior +
   chart, add weight, profile, public view); the quick-log write path works.
 - **Needs live verification with two accounts:** multi-account collaboration (invite/accept, role
-  changes, the `firestore.rules` self-join clause) — see `FEEDBACK-phases.md` Phase 3.
+  changes, the `firestore.rules` self-join clause) — see `../documents/app-feedback-phases.md` Phase 3.

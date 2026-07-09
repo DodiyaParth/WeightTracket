@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
 // Standardizes a mutation call site: tracks busy/error and never lets a
-// rejected write pass silently (see FEEDBACK-actionplan.md S-C / DEV-5).
+// rejected write pass silently (see ../../documents/app-feedback-action-plan.md S-C / DEV-5).
 // No Undo affordance by design — recoverability comes from collision/destructive
 // confirms, not an undo action.
 export function useAsyncAction() {

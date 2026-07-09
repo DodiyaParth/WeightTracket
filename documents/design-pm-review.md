@@ -1,10 +1,10 @@
 # PM Design Review — WeightTracker prototype
 
-**Reviewed:** `design/` prototype against `../REQUIREMENTS.md`
+**Reviewed:** `design/` prototype against `requirements.md`
 **Date:** 2026-06-30
 **From:** Product
 
-> **Build scope is now set by [`DESIGNER-BRIEF.md`](./DESIGNER-BRIEF.md).** For the current round the
+> **Build scope is now set by [`design-designer-brief.md`](./design-designer-brief.md).** For the current round the
 > designer works **desktop-only**, keeps the dashboard interior as the existing mock, and **excludes**
 > the motivation engine. So mobile (B1), projection (B2), unsafe-pace (B4), motivation (B5), and the
 > in-dashboard empty states (B6) below are **parked** as backlog for the later dashboard-interior
@@ -13,7 +13,7 @@
 The prototype is a strong start — the visual language (airy, one teal accent, calm cards) is exactly
 right, and the dashboard detail page packs in the chart, stats, goals, motivation, BMI and NSV wins
 cleanly. The notes below are what I need changed before this becomes the build reference. They're
-grouped by priority. **Section A** are new product decisions (already written into REQUIREMENTS.md
+grouped by priority. **Section A** are new product decisions (already written into requirements.md
 §5 + §11). **Section B** are places the prototype doesn't yet meet requirements we already agreed.
 
 ---
@@ -32,11 +32,11 @@ dashboard.
   doing to hit our target," shown near the goal, not as a context-free tracker.
 - *Why:* a couple tracks habits in service of the milestone the dashboard is already tracking; a
   detached global page breaks that link and doesn't scale when someone is in two dashboards.
-- *Spec:* REQUIREMENTS.md §5 (updated).
+- *Spec:* requirements.md §5 (updated).
 
 ### A2. Post-login landing — jump to the active dashboard
 **Today:** login always lands on `/` ("Your dashboards" list).
-**Change (REQUIREMENTS.md §11.2):**
+**Change (requirements.md §11.2):**
 - If the user belongs to a dashboard **updated in the last 7 days**, open the **most-recently-updated
   one directly** (straight to dashboard detail).
 - Otherwise, open the **Dashboards list** page ("dashboards shared with you").
@@ -46,7 +46,7 @@ dashboard.
 ### A3. Sidebar: a Dashboards bucket + 5 recent dashboards
 **Today:** sidebar has a single `Dashboards` item that opens one hardcoded detail page; the list of
 dashboards only exists on Home.
-**Change (REQUIREMENTS.md §11.1):**
+**Change (requirements.md §11.1):**
 - A **Dashboards** entry that opens the **full Dashboards list page** ("your dashboards").
 - Directly beneath it, the **5 most-recently-updated dashboards** as direct links — click opens that
   dashboard. (6th+ live on the list page.)
@@ -59,7 +59,7 @@ dashboards only exists on Home.
 ## B. Gaps vs. requirements we already agreed
 
 ### B1. Mobile / responsive is missing — and it's requirement #1 (P0)
-The README scopes this prototype to "desktop UI," but REQUIREMENTS.md is emphatically **mobile-first**
+The README scopes this prototype to "desktop UI," but requirements.md is emphatically **mobile-first**
 (§2, §7). `styles.css` has a fixed 240px sidebar, a fixed 720px chart, `1fr 360px` two-column grids,
 and **zero media queries**.
 - Please design the **mobile layouts**: collapsed sidebar → bottom nav or drawer, single-column
@@ -119,7 +119,7 @@ dashboard** (§3.3).
 ### B9. Multiple distinct dashboards + open-ended people (P2)
 - Home lists two dashboards but both navigate to the same hardcoded detail. Once routes are
   per-id (A3), please show **two genuinely different dashboard states**.
-- Color system only defines `--p1`/`--p2`. REQUIREMENTS.md says people are **open-ended**; show how
+- Color system only defines `--p1`/`--p2`. requirements.md says people are **open-ended**; show how
   **3+ people** look (color assignment, legend overflow, avatar stack). Couple is the v1 case, but
   don't design a hard 2-person ceiling.
 
@@ -138,7 +138,7 @@ dashboard** (§3.3).
 
 ---
 
-## D. What changed in REQUIREMENTS.md (source of truth)
+## D. What changed in requirements.md (source of truth)
 I've already written A1–A3 into the spec so eng + design work from one doc:
 - **§2 Key Decisions** — Habits row reworded (in-dashboard); new **Navigation** row.
 - **§5 Daily Checklist** — habits live inside the dashboard; no global page; framed to the goal.

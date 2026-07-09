@@ -51,7 +51,7 @@ describe('landingRoute (§11.2)', () => {
 });
 
 // The members map stores only uid/role/joinedAt (never a copy of name/email/
-// photoURL/heightM/color/initial — see FEEDBACK-phases.md / the "don't store
+// photoURL/heightM/color/initial — see ../../../documents/app-feedback-phases.md / the "don't store
 // what's derivable" fix). memberList joins it against a live profiles map.
 describe('memberList — derives display fields from live profiles, never storage', () => {
   const dash = {
