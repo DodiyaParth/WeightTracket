@@ -7,11 +7,13 @@
 // would otherwise refetch every mounted hook once per emit. Coalescing them
 // into one microtask-scale tick means every hook still refetches exactly
 // once per burst of writes, not once per individual write.
-const listeners = new Set();
+type Listener = () => void;
+
+const listeners = new Set<Listener>();
 let pending = false;
 
 export const bus = {
-  emit() {
+  emit(): void {
     if (pending) return;
     pending = true;
     setTimeout(() => {
@@ -21,7 +23,7 @@ export const bus = {
       });
     }, 30);
   },
-  subscribe(cb) {
+  subscribe(cb: Listener): () => void {
     listeners.add(cb);
     return () => listeners.delete(cb);
   },

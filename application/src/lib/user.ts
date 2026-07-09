@@ -1,6 +1,6 @@
 // Small helpers for turning a Firebase user into display-friendly bits.
 
-export function initialsOf(name, email) {
+export function initialsOf(name?: string | null, email?: string | null): string {
   const n = (name || '').trim();
   if (n) {
     const parts = n.split(/\s+/);
@@ -11,7 +11,7 @@ export function initialsOf(name, email) {
   return '?';
 }
 
-export function firstNameOf(name, email) {
+export function firstNameOf(name?: string | null, email?: string | null): string {
   const n = (name || '').trim();
   if (n) return n.split(/\s+/)[0];
   if (email) return email.split('@')[0];

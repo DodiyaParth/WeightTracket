@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from './Modal.jsx';
 import Icon from './Icon.jsx';
 import { SegRadio } from './ui.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { repo } from '../data/repo.js';
+import type { Role } from '../types.js';
 
 const ROLE_OPTIONS = [['editor', 'Can edit'], ['viewer', 'Read only']];
 
 // Create a NEW dashboard: name + optional team goal + optional invite.
-export default function CreateDashboard({ onClose }) {
+export default function CreateDashboard({ onClose }: { onClose: () => void }) {
   const nav = useNavigate();
   const { user } = useAuth();
   const [name, setName] = useState('');
@@ -23,9 +24,9 @@ export default function CreateDashboard({ onClose }) {
   const create = async () => {
     if (!name.trim() || busy) return;
     setBusy(true);
-    const d = await repo.createDashboard(user.uid, { name: name.trim(), teamGoalLabel: goal.trim() || null, teamGoalTarget: target });
+    const d = await repo.createDashboard(user!.uid, { name: name.trim(), teamGoalLabel: goal.trim() || null, teamGoalTarget: target });
     if (showInvite && email.trim()) {
-      await repo.createInvite(d.id, { fromUid: user.uid, fromName: user.displayName || 'A teammate', toEmail: email.trim(), role });
+      await repo.createInvite(d.id, { fromUid: user!.uid, fromName: user!.displayName || 'A teammate', toEmail: email.trim(), role: role as Role });
     }
     onClose();
     nav(`/dashboard/${d.id}`);

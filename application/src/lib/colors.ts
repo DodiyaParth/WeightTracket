@@ -2,10 +2,10 @@
 // Semantic: teal = primary/person-1, indigo = person-2, amber = caution, rose = gain.
 export const PERSON_COLORS = ['var(--p1)', 'var(--p2)', 'var(--p3)', 'var(--p4)', 'var(--p5)'];
 
-export const colorForIndex = (i) => PERSON_COLORS[i % PERSON_COLORS.length];
+export const colorForIndex = (i: number): string => PERSON_COLORS[i % PERSON_COLORS.length];
 
 // 2-letter initials from a display name (or email fallback).
-export function initials(name, email) {
+export function initials(name?: string | null, email?: string | null): string {
   const n = (name || '').trim();
   if (n) {
     const parts = n.split(/\s+/);

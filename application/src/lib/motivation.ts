@@ -3,8 +3,23 @@
 import { sortEntries, trendSeries, spanDays } from './stats.js';
 import { verdictVsIdeal } from './health.js';
 import { addDays } from './date.js';
+import type { SeriesPoint, Goal } from '../types.js';
 
-export const STATUS = {
+export type MotivState = 'onTrack' | 'ahead' | 'behind' | 'plateau' | 'regain' | 'milestone';
+
+export interface StatusInfo {
+  label: string;
+  away: boolean;
+  amber: boolean;
+}
+export interface MotivInfo {
+  label: string;
+  emoji: string;
+  title: string;
+  body: string;
+}
+
+export const STATUS: Record<string, StatusInfo> = {
   onTrack: { label: 'On track', away: false, amber: false },
   ahead: { label: 'Ahead', away: false, amber: false },
   behind: { label: 'Behind', away: true, amber: true },
@@ -13,9 +28,9 @@ export const STATUS = {
   milestone: { label: 'Ahead', away: false, amber: false },
 };
 
-export const MOTIV_ORDER = ['onTrack', 'ahead', 'behind', 'plateau', 'regain', 'milestone'];
+export const MOTIV_ORDER: MotivState[] = ['onTrack', 'ahead', 'behind', 'plateau', 'regain', 'milestone'];
 
-export const MOTIV = {
+export const MOTIV: Record<string, MotivInfo> = {
   onTrack: { label: 'On track', emoji: '🌱', title: 'On track — keep it steady',
     body: 'Consistent logging is paying off. The trend is doing exactly what it should — slow and sustainable. The habit is the win.' },
   ahead: { label: 'Ahead', emoji: '🚀', title: 'Ahead of plan — ease into it',
@@ -31,12 +46,12 @@ export const MOTIV = {
 };
 
 // 5% / 10% of starting body weight (real health-benefit thresholds).
-export function milestones(startKg) {
+export function milestones(startKg?: number | null): { m5: number; m10: number } {
   if (!startKg) return { m5: 0, m10: 0 };
   return { m5: +(startKg * 0.05).toFixed(1), m10: +(startKg * 0.1).toFixed(1) };
 }
 
-export function milestoneProgress(startKg, currentKg) {
+export function milestoneProgress(startKg: number, currentKg: number): number {
   const lost = Math.max(0, startKg - currentKg);
   const tenPct = startKg * 0.1;
   return tenPct ? Math.max(0, Math.min(1, lost / tenPct)) : 0;
@@ -48,7 +63,12 @@ export function milestoneProgress(startKg, currentKg) {
 //  - flat trend ~21d → plateau
 //  - just crossed the 5% milestone → milestone
 //  - otherwise pace vs ideal: ahead / behind / onTrack
-export function computeState({ entries, goal, alpha, milestoneJustHit = false } = {}) {
+export function computeState({ entries, goal, alpha, milestoneJustHit = false }: {
+  entries?: SeriesPoint[] | null;
+  goal?: Goal | null;
+  alpha?: number;
+  milestoneJustHit?: boolean;
+} = {}): MotivState {
   const s = sortEntries(entries);
   if (s.length < 2 || spanDays(entries) < 14) return 'onTrack';
 
@@ -83,7 +103,7 @@ export function computeState({ entries, goal, alpha, milestoneJustHit = false } 
   return 'onTrack';
 }
 
-export function getMessage(state, { milestone5 } = {}) {
+export function getMessage(state: string, { milestone5 }: { milestone5?: number | string } = {}): MotivInfo {
   const m = MOTIV[state] || MOTIV.onTrack;
-  return { ...m, body: m.body.replace('{kg}', milestone5 ?? '') };
+  return { ...m, body: m.body.replace('{kg}', String(milestone5 ?? '')) };
 }

@@ -3,38 +3,38 @@
 
 export const DAY_MS = 86400000;
 
-const pad2 = (n) => String(n).padStart(2, '0');
+const pad2 = (n: number): string => String(n).padStart(2, '0');
 
 // Local calendar date of a JS Date / timestamp → "YYYY-MM-DD".
-export function iso(d) {
+export function iso(d: Date | number): string {
   const t = d instanceof Date ? d : new Date(d);
   return `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`;
 }
 
-export const todayISO = () => iso(new Date());
+export const todayISO = (): string => iso(new Date());
 
 // Treat an ISO date string as a UTC calendar instant (midnight UTC).
-export function isoToMs(s) {
+export function isoToMs(s: string): number {
   const [y, m, d] = String(s).split('-').map(Number);
   return Date.UTC(y, (m || 1) - 1, d || 1);
 }
 
-export const msToISO = (ms) => new Date(ms).toISOString().slice(0, 10);
-export const addDays = (s, n) => msToISO(isoToMs(s) + n * DAY_MS);
+export const msToISO = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
+export const addDays = (s: string, n: number): string => msToISO(isoToMs(s) + n * DAY_MS);
 // Whole days from a → b (positive if b is later).
-export const daysBetween = (a, b) => Math.round((isoToMs(b) - isoToMs(a)) / DAY_MS);
+export const daysBetween = (a: string, b: string): number => Math.round((isoToMs(b) - isoToMs(a)) / DAY_MS);
 
-export function fmtDate(s) {
+export function fmtDate(s: string | number): string {
   const ms = typeof s === 'number' ? s : isoToMs(s);
   return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
-export function fmtLong(s) {
+export function fmtLong(s: string | number): string {
   const ms = typeof s === 'number' ? s : isoToMs(s);
   return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
 // "late Sep", "mid Oct", "early Jan" — fuzzy month label for honest projections.
-export function fuzzyMonth(s) {
+export function fuzzyMonth(s: string | number): string {
   const ms = typeof s === 'number' ? s : isoToMs(s);
   const d = new Date(ms);
   const day = d.getUTCDate();
@@ -44,20 +44,22 @@ export function fuzzyMonth(s) {
 }
 
 // ---- Flexible date parsing for CSV import -------------------------------
-const MONTHS = {
+const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4,
   may: 5, jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8, sep: 9, sept: 9,
   september: 9, oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12,
 };
 
-export const DATE_FORMATS = [
+export type DateFormat = 'iso' | 'dmy' | 'mdy' | 'named';
+
+export const DATE_FORMATS: [DateFormat, string][] = [
   ['iso', 'YYYY-MM-DD'],
   ['dmy', 'DD/MM/YYYY'],
   ['mdy', 'MM/DD/YYYY'],
   ['named', 'Mon DD YYYY'],
 ];
 
-const valid = (y, m, d) => {
+const valid = (y: number, m: number, d: number): string | null => {
   if (m < 1 || m > 12 || d < 1 || d > 31) return null;
   const dim = new Date(Date.UTC(y, m, 0)).getUTCDate(); // days in month
   if (d > dim) return null;
@@ -65,7 +67,7 @@ const valid = (y, m, d) => {
 };
 
 // Parse one value with an explicit format → ISO string or null.
-export function parseDate(value, fmt) {
+export function parseDate(value: string | number | null | undefined, fmt: string): string | null {
   if (value == null) return null;
   const s = String(value).trim();
   if (!s) return null;
@@ -74,7 +76,7 @@ export function parseDate(value, fmt) {
     const m = s.match(/([A-Za-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/) // Jun 30, 2026
       || s.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\.?,?\s+(\d{4})/);    // 30 June 2026
     if (!m) return null;
-    let mon, day, year;
+    let mon: number, day: number, year: number;
     if (/[A-Za-z]/.test(m[1])) { mon = MONTHS[m[1].toLowerCase()]; day = +m[2]; year = +m[3]; }
     else { day = +m[1]; mon = MONTHS[m[2].toLowerCase()]; year = +m[3]; }
     if (!mon) return null;
@@ -93,7 +95,7 @@ export function parseDate(value, fmt) {
 }
 
 // Guess the format from a set of sample strings.
-export function detectDateFormat(samples) {
+export function detectDateFormat(samples: unknown[]): DateFormat {
   const vals = samples.map((s) => String(s ?? '').trim()).filter(Boolean);
   if (!vals.length) return 'iso';
   if (vals.some((v) => /[A-Za-z]/.test(v))) return 'named';

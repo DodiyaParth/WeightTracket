@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import Icon, { AvatarStack } from '../components/Icon.jsx';
@@ -14,13 +14,14 @@ import { collaborating, viewOnly, accessFor, isEditable, memberList } from '../l
 import { togetherChange } from '../lib/stats.js';
 import { fmtDate } from '../lib/date.js';
 import { formatChange } from '../lib/format.js';
+import type { AuthUser, Dashboard, Invite, SeriesPoint } from '../types.js';
 
-function teamStat(series, trackedUids, target) {
+function teamStat(series: Record<string, SeriesPoint[]> | undefined, trackedUids: string[], target?: number) {
   const lost = togetherChange(series || {}, trackedUids);
   return { lost, pct: target ? Math.min(1, Math.max(0, lost / target)) : 0 };
 }
 
-function DashCard({ d, uid, onOpen }) {
+function DashCard({ d, uid, onOpen }: { d: Dashboard; uid: string | undefined; onOpen: () => void }) {
   const { data: series } = useDashboardSeries(d.id);
   const { data: profiles } = useProfiles(d.memberUids || []);
   const view = !isEditable(d, uid);
@@ -51,13 +52,13 @@ function DashCard({ d, uid, onOpen }) {
   );
 }
 
-function Invites({ invites, user }) {
-  const [busyId, setBusyId] = useState(null);
-  const [rowError, setRowError] = useState(null);
-  const [decliningInv, setDecliningInv] = useState(null);
+function Invites({ invites, user }: { invites: Invite[] | undefined; user: AuthUser }) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
+  const [decliningInv, setDecliningInv] = useState<Invite | null>(null);
   const { run: runDecline, busy: declineBusy, error: declineError } = useAsyncAction();
 
-  const accept = async (inv) => {
+  const accept = async (inv: Invite) => {
     if (busyId) return;
     setBusyId(inv.id);
     setRowError(null);
@@ -71,7 +72,7 @@ function Invites({ invites, user }) {
   };
   const confirmDecline = async () => {
     try {
-      await runDecline(() => repo.declineInvite(decliningInv.id));
+      await runDecline(() => repo.declineInvite(decliningInv!.id));
       setDecliningInv(null);
     } catch { /* surfaced via declineError */ }
   };
@@ -147,11 +148,11 @@ export default function DashboardsList() {
 
       {loading && <ListSkeleton />}
 
-      {!loading && error && (
+      {!loading && !!error && (
         <RetryCard title="Couldn’t load your dashboards" message="Check your connection and try again." onRetry={reload} />
       )}
 
-      <Invites invites={invites} user={user} />
+      <Invites invites={invites} user={user!} />
 
       {empty && (
         <div className="empty">

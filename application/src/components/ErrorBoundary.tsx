@@ -1,19 +1,27 @@
-import React from 'react';
+import React, { type ErrorInfo, type ReactNode } from 'react';
 import Icon from './Icon.jsx';
+
+interface ErrorBoundaryProps {
+  children?: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  error: Error | null;
+}
 
 // Top-level render-error guard (DEV-37) — without this, an uncaught throw
 // anywhere in the tree white-screens the whole app with no way back.
-export default class ErrorBoundary extends React.Component {
-  constructor(props) {
+export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { error: null };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { error };
   }
 
-  componentDidCatch(error, info) {
+  componentDidCatch(error: Error, info: ErrorInfo) {
     // eslint-disable-next-line no-console
     console.error('[WeightTracker] unhandled render error:', error, info);
   }

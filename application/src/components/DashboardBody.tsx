@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Icon, { Avatar } from './Icon.jsx';
 import WeightChart from './Chart.jsx';
 import MotivationCard from './MotivationCard.jsx';
@@ -9,20 +9,35 @@ import { ChangeText } from './ui.jsx';
 import { repo } from '../data/repo.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { memberList } from '../lib/dashboards.js';
-import { summarize, currentWeight, spanDays, togetherChange } from '../lib/stats.js';
+import { summarize, currentWeight, spanDays, togetherChange, type Summary, type Projection } from '../lib/stats.js';
 import { computeState, STATUS, milestones, milestoneProgress } from '../lib/motivation.js';
 import { bmiValue, bmiCategory, healthyRange, isSafePace, goalProgress, verdictVsIdeal } from '../lib/health.js';
-import { fmtDate, fmtLong, todayISO } from '../lib/date.js';
+import { fmtDate, todayISO } from '../lib/date.js';
 import { fmtKg, formatChange } from '../lib/format.js';
+import type { Dashboard, EnrichedMember, Goal, HabitLog, Nsv, Profile, SeriesPoint } from '../types.js';
 
-function goalFor(dashboard, series, uid) {
-  const g = dashboard.goals?.[uid] || {};
+// A dashboard's per-person goal resolved for display: stored goal fields with a
+// starting weight backfilled from the first weigh-in when unset. Shape-compatible
+// with the domain Goal so it can flow into summarize/computeState unchanged.
+type ResolvedGoal = { startKg: number | null; targetKg: number | null; targetISO: string | null };
+
+function goalFor(dashboard: Dashboard, series: Record<string, SeriesPoint[]>, uid: string): ResolvedGoal {
+  const g: Goal = dashboard.goals?.[uid] || {};
   const entries = series[uid] || [];
   const startKg = g.startKg ?? entries[0]?.kg ?? null;
   return { startKg, targetKg: g.targetKg ?? null, targetISO: g.targetISO ?? null };
 }
 
-function Tile({ label, value, unit, sub, subTone, pill }) {
+interface TileProps {
+  label: ReactNode;
+  value: ReactNode;
+  unit?: ReactNode;
+  sub?: ReactNode;
+  subTone?: string;
+  pill?: ReactNode;
+}
+
+function Tile({ label, value, unit, sub, subTone, pill }: TileProps) {
   return (
     <div className="card stat-tile">
       <span className="label">{label}</span>
@@ -32,7 +47,16 @@ function Tile({ label, value, unit, sub, subTone, pill }) {
   );
 }
 
-function StatTiles({ s, days, proj, verdict, verdictTone, away }) {
+interface StatsPanelProps {
+  s: Summary;
+  days: number;
+  proj: Projection;
+  verdict: string | null;
+  verdictTone: string;
+  away: boolean;
+}
+
+function StatTiles({ s, days, proj, verdict, verdictTone, away }: StatsPanelProps) {
   const lockProj = days < 14;
   const totalC = formatChange(s.total);
   const weeklyC = formatChange(s.weekly, { unit: 'kg/wk' });
@@ -51,7 +75,7 @@ function StatTiles({ s, days, proj, verdict, verdictTone, away }) {
   );
 }
 
-function Progress({ s, days, proj, verdict, verdictTone, away }) {
+function Progress({ s, days, proj, verdict, verdictTone, away }: StatsPanelProps) {
   return (
     <div className="card">
       <div className="card-title" style={{ marginBottom: 14 }}>Progress &amp; prediction</div>
@@ -78,7 +102,13 @@ function Progress({ s, days, proj, verdict, verdictTone, away }) {
   );
 }
 
-function GoalRow({ person, g, currentKg }) {
+interface GoalRowProps {
+  person: EnrichedMember;
+  g: ResolvedGoal;
+  currentKg: number | null;
+}
+
+function GoalRow({ person, g, currentKg }: GoalRowProps) {
   if (g.targetKg == null) {
     return (
       <div className="row between">
@@ -87,7 +117,8 @@ function GoalRow({ person, g, currentKg }) {
       </div>
     );
   }
-  const pct = goalProgress({ start: g.startKg ?? currentKg, current: currentKg, target: g.targetKg });
+  // null coerces to 0 in the arithmetic goalProgress does, so ?? 0 is behaviour-identical.
+  const pct = goalProgress({ start: g.startKg ?? currentKg ?? 0, current: currentKg ?? 0, target: g.targetKg });
   return (
     <div className="col" style={{ gap: 9 }}>
       <div className="row between">
@@ -103,7 +134,7 @@ function GoalRow({ person, g, currentKg }) {
   );
 }
 
-function BmiRow({ person, currentKg }) {
+function BmiRow({ person, currentKg }: { person: EnrichedMember; currentKg: number | null }) {
   const bmi = bmiValue(currentKg, person.heightM);
   if (bmi == null) {
     return (
@@ -114,7 +145,8 @@ function BmiRow({ person, currentKg }) {
     );
   }
   const cat = bmiCategory(bmi);
-  const [lo, hi] = healthyRange(person.heightM);
+  // bmi != null guarantees a valid heightM, so healthyRange never returns null here.
+  const [lo, hi] = healthyRange(person.heightM)!;
   const pos = Math.max(0, Math.min(100, ((bmi - 17) / (32 - 17)) * 100));
   return (
     <div className="col" style={{ gap: 8 }}>
@@ -131,10 +163,17 @@ function BmiRow({ person, currentKg }) {
   );
 }
 
-function Wins({ dashboard, focusId, notes, canAdd }) {
+interface WinsProps {
+  dashboard: Dashboard;
+  focusId: string;
+  notes?: Nsv[];
+  canAdd: boolean;
+}
+
+function Wins({ dashboard, focusId, notes, canAdd }: WinsProps) {
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState<Nsv | null>(null);
   const { run, busy, error } = useAsyncAction();
   const { run: runDelete, busy: deleteBusy, error: deleteError } = useAsyncAction();
   const save = async () => {
@@ -146,7 +185,7 @@ function Wins({ dashboard, focusId, notes, canAdd }) {
   };
   const confirmDelete = async () => {
     try {
-      await runDelete(() => repo.deleteNsv(dashboard.id, deleteTarget.id));
+      await runDelete(() => repo.deleteNsv(dashboard.id, deleteTarget!.id));
     } catch { return; }
     setDeleteTarget(null);
   };
@@ -193,7 +232,7 @@ function Wins({ dashboard, focusId, notes, canAdd }) {
   );
 }
 
-function TeamGoal({ dashboard, series }) {
+function TeamGoal({ dashboard, series }: { dashboard: Dashboard; series: Record<string, SeriesPoint[]> }) {
   const tg = dashboard.teamGoal;
   if (!tg) return null;
   const lost = togetherChange(series, dashboard.trackedUids || []);
@@ -209,13 +248,26 @@ function TeamGoal({ dashboard, series }) {
   );
 }
 
-export default function DashboardBody({ dashboard, series = {}, habitLogs = {}, nsv = {}, meUid, readOnly = false, onEditGoals = () => {}, profiles = {} }) {
+interface DashboardBodyProps {
+  dashboard: Dashboard;
+  series?: Record<string, SeriesPoint[]>;
+  habitLogs?: Record<string, Record<string, HabitLog>>;
+  nsv?: Record<string, Nsv[]>;
+  meUid: string;
+  readOnly?: boolean;
+  onEditGoals?: () => void;
+  profiles?: Record<string, Profile>;
+}
+
+export default function DashboardBody({ dashboard, series = {}, habitLogs = {}, nsv = {}, meUid, readOnly = false, onEditGoals = () => {}, profiles = {} }: DashboardBodyProps) {
   const quick = useQuickLog();
   const members = memberList(dashboard, profiles);
   const trackedMembers = members.filter((m) => (dashboard.trackedUids || []).includes(m.uid));
   const defaultFocus = trackedMembers.find((m) => m.uid === meUid)?.uid || trackedMembers[0]?.uid;
   const [focus, setFocus] = useState(defaultFocus);
-  const focusId = trackedMembers.find((m) => m.uid === focus) ? focus : defaultFocus;
+  // Rendered stats run only after the hasAnyData early-return below, where at
+  // least one tracked member exists, so a focus id is always resolved by then.
+  const focusId = (trackedMembers.find((m) => m.uid === focus) ? focus : defaultFocus) as string;
   const focusPerson = trackedMembers.find((m) => m.uid === focusId) || members[0];
 
   const hasAnyData = trackedMembers.some((m) => (series[m.uid] || []).length > 0);
@@ -245,12 +297,12 @@ export default function DashboardBody({ dashboard, series = {}, habitLogs = {}, 
   // reflect what it actually means — "behind" must never render with the
   // same "good" styling as "ahead" (DEV-32).
   const verdictKey = dated && days >= 14
-    ? verdictVsIdeal({ startKg: g.startKg, startISO: focusEntries[0]?.date, targetKg: g.targetKg, targetISO: g.targetISO, currentKg: s.trend ?? s.current })
+    ? verdictVsIdeal({ startKg: g.startKg, startISO: focusEntries[0]?.date, targetKg: g.targetKg, targetISO: g.targetISO, currentKg: (s.trend ?? s.current)! })
     : null;
   const verdict = verdictKey ? STATUS[verdictKey].label : null;
   const verdictTone = verdictKey === 'ahead' ? 'change-good' : verdictKey === 'behind' ? 'change-bad' : 'change-neutral';
   const ms = milestones(g.startKg ?? focusEntries[0]?.kg);
-  const progress = milestoneProgress(g.startKg ?? focusEntries[0]?.kg, s.trend ?? s.current);
+  const progress = milestoneProgress(g.startKg ?? focusEntries[0]?.kg, (s.trend ?? s.current)!);
 
   const chartPeople = trackedMembers.map((m) => ({ uid: m.uid, name: m.name, color: m.color }));
 

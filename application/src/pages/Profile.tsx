@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout.jsx';
 import Icon from '../components/Icon.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
@@ -13,7 +13,7 @@ export default function Profile() {
   const { data: profile } = useProfile(user?.uid);
   const [name, setName] = useState('');
   const [height, setHeight] = useState('');
-  const [toast, setToast] = useState(null);
+  const [toast, setToast] = useState<string | null>(null);
   const { run, busy, error } = useAsyncAction();
   const signedInWithGoogle = user?.providerData?.[0]?.providerId === 'google.com';
 
@@ -23,7 +23,7 @@ export default function Profile() {
 
   const save = async () => {
     try {
-      await run(() => repo.updateProfile(user.uid, { name: name.trim() || 'You', heightM: height ? +height : null }));
+      await run(() => repo.updateProfile(user!.uid, { name: name.trim() || 'You', heightM: height ? +height : null }));
     } catch { return; }
     setToast('Profile saved');
     setTimeout(() => setToast(null), 2200);

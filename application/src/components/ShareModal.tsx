@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal, { Confirm } from './Modal.jsx';
 import Icon, { Avatar } from './Icon.jsx';
@@ -8,10 +8,17 @@ import { useAsync } from '../hooks/useData.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { repo } from '../data/repo.js';
 import { memberList } from '../lib/dashboards.js';
+import type { Dashboard, Invite, Profile, Role } from '../types.js';
 
 const ROLE_OPTIONS = [['editor', 'Can edit'], ['viewer', 'Read only']];
 
-export default function ShareModal({ dashboard, profiles = {}, onClose }) {
+interface ShareModalProps {
+  dashboard: Dashboard;
+  profiles?: Record<string, Profile>;
+  onClose: () => void;
+}
+
+export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareModalProps) {
   const nav = useNavigate();
   const { user } = useAuth();
   const d = dashboard;
@@ -22,12 +29,12 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }) {
   const [revoke, setRevoke] = useState(false);
   const { run: runInvite, busy: inviting, error: inviteError } = useAsyncAction();
   const { run: runShare, busy: shareBusy, error: shareError } = useAsyncAction();
-  const [busyUid, setBusyUid] = useState(null);
-  const [rowError, setRowError] = useState(null);
-  const [busyInviteId, setBusyInviteId] = useState(null);
-  const [confirmRole, setConfirmRole] = useState(null); // { uid, name, from, to }
-  const [confirmCancel, setConfirmCancel] = useState(null); // invite object
-  const [confirmRemove, setConfirmRemove] = useState(null); // { uid, name }
+  const [busyUid, setBusyUid] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
+  const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
+  const [confirmRole, setConfirmRole] = useState<{ uid: string; name: string; from: Role; to: Role } | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState<Invite | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<{ uid: string; name: string } | null>(null);
   const linkOn = !!d.public?.enabled;
   const iAmOwner = d.ownerUid === user?.uid;
   const members = memberList(d, profiles);
@@ -40,7 +47,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }) {
   // touch membership). Role changes are field-path updates (DEV-17), so a
   // concurrent join/role-change elsewhere can't clobber this one.
   const doChangeRole = async () => {
-    const { uid, to } = confirmRole;
+    const { uid, to } = confirmRole!;
     setBusyUid(uid);
     setRowError(null);
     try {
@@ -54,7 +61,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }) {
   };
   // Owner-only (see firestore.rules) — removes someone else from the dashboard.
   const doRemoveMember = async () => {
-    const { uid } = confirmRemove;
+    const { uid } = confirmRemove!;
     setBusyUid(uid);
     setRowError(null);
     try {
@@ -67,7 +74,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }) {
     }
   };
   const doCancelInvite = async () => {
-    const id = confirmCancel.id;
+    const id = confirmCancel!.id;
     setBusyInviteId(id);
     setRowError(null);
     try {
@@ -82,7 +89,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }) {
   const invite = async () => {
     if (!email.trim()) return;
     try {
-      await runInvite(() => repo.createInvite(d.id, { fromUid: user.uid, fromName: user.displayName || 'A teammate', toEmail: email.trim(), role }));
+      await runInvite(() => repo.createInvite(d.id, { fromUid: user!.uid, fromName: user!.displayName || 'A teammate', toEmail: email.trim(), role: role as Role }));
     } catch { return; }
     setEmail('');
   };
@@ -109,7 +116,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }) {
                   <RoleBadge access="owner" />
                 ) : iAmOwner ? (
                   <span className="row" style={{ gap: 8 }}>
-                    <SegRadio value={m.role} disabled={busyUid === m.uid} onChange={(r) => setConfirmRole({ uid: m.uid, name: m.name, from: m.role, to: r })} options={ROLE_OPTIONS} ariaLabel={`${m.name}’s access level`} />
+                    <SegRadio value={m.role} disabled={busyUid === m.uid} onChange={(r) => setConfirmRole({ uid: m.uid, name: m.name, from: m.role, to: r as Role })} options={ROLE_OPTIONS} ariaLabel={`${m.name}’s access level`} />
                     <button className="icon-btn ghost-ib" title={`Remove ${m.name}`} aria-label={`Remove ${m.name}`} disabled={busyUid === m.uid} onClick={() => setConfirmRemove({ uid: m.uid, name: m.name })}>
                       <Icon name="close" size={15} color="var(--muted)" />
                     </button>

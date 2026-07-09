@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import Icon, { AvatarStack } from '../components/Icon.jsx';
@@ -14,6 +14,7 @@ import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { repo } from '../data/repo.js';
 import { useDashboard, useDashboardSeries, useHabitLogs, useNsv, useProfiles } from '../hooks/useData.js';
 import { isEditable, memberList } from '../lib/dashboards.js';
+import { errorCode } from '../lib/errors.js';
 
 export default function DashboardDetail() {
   const { id } = useParams();
@@ -25,7 +26,7 @@ export default function DashboardDetail() {
   const { data: habitLogs } = useHabitLogs(id);
   const { data: nsv } = useNsv(id);
   const { data: profiles } = useProfiles(d?.memberUids || []);
-  const [modal, setModal] = useState(null);
+  const [modal, setModal] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
   const { run: runLeave, busy: leaveBusy, error: leaveError } = useAsyncAction();
 
@@ -33,7 +34,7 @@ export default function DashboardDetail() {
   // A permission-denied read means "you don't have access" (never a member, removed,
   // or the dashboard was deleted) — that's the same not-found copy below, not a
   // connectivity problem, so it falls through instead of showing the retry card.
-  if (error && error.code !== 'permission-denied') {
+  if (error && errorCode(error) !== 'permission-denied') {
     return (
       <Layout title="Couldn’t load dashboard" primary={null}>
         <RetryCard title="Couldn’t load this dashboard" message="Check your connection and try again." onRetry={reload} />
@@ -57,7 +58,7 @@ export default function DashboardDetail() {
   const isOwner = d.ownerUid === user?.uid;
 
   const confirmLeave = async () => {
-    try { await runLeave(() => repo.removeMember(d.id, user.uid)); } catch { return; }
+    try { await runLeave(() => repo.removeMember(d.id, user!.uid)); } catch { return; }
     setLeaving(false);
     nav('/');
   };
@@ -93,13 +94,13 @@ export default function DashboardDetail() {
         series={series || {}}
         habitLogs={habitLogs || {}}
         nsv={nsv || {}}
-        meUid={user?.uid}
+        meUid={user!.uid}
         readOnly={!editable}
         onEditGoals={() => setModal('goals')}
         profiles={profiles || {}}
       />
       {modal === 'goals' && <GoalEditor dashboard={d} series={series || {}} profiles={profiles || {}} onClose={() => setModal(null)} />}
-      {modal === 'settings' && <DashSettings dashboard={d} profiles={profiles || {}} meUid={user?.uid} onClose={() => setModal(null)} onEditGoals={() => setModal('goals')} onManageSharing={() => setModal('share')} />}
+      {modal === 'settings' && <DashSettings dashboard={d} profiles={profiles || {}} meUid={user!.uid} onClose={() => setModal(null)} onEditGoals={() => setModal('goals')} onManageSharing={() => setModal('share')} />}
       {modal === 'share' && <ShareModal dashboard={d} profiles={profiles || {}} onClose={() => setModal(null)} />}
       {leaving && (
         <Confirm

@@ -8,7 +8,7 @@ import './styles.css';
 import './app.css';
 
 // HashRouter keeps deep links working on GitHub Pages with no server rewrites.
-ReactDOM.createRoot(document.getElementById('root')).render(
+ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

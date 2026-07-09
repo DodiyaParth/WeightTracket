@@ -3,13 +3,18 @@
 // dashboards. Weight series are generated deterministically (stable per day).
 import { addDays, todayISO } from '../lib/date.js';
 import { DONE, GRACE } from '../lib/habits.js';
+import type {
+  Dashboard, HabitLog, Invite, Member, Nsv, Profile, Role, Store, WeightEntry,
+} from '../types.js';
 
 // The demo's signed-in user.
 export const DEMO_UID = 'parth';
 
 // Profile data only — no `color`: dashboard-membership color is derived from
 // join order at render time (see lib/dashboards.js memberList), never stored.
-const PEOPLE = {
+type Person = { uid: string; name: string; email: string; heightM: number };
+
+const PEOPLE: Record<string, Person> = {
   parth: { uid: 'parth', name: 'Parth', email: 'parth@weighttracker.app', heightM: 1.78 },
   priya: { uid: 'priya', name: 'Priya', email: 'priya@weighttracker.app', heightM: 1.63 },
   arjun: { uid: 'arjun', name: 'Arjun', email: 'arjun@weighttracker.app', heightM: 1.80 },
@@ -18,8 +23,10 @@ const PEOPLE = {
   dad: { uid: 'dad', name: 'Dad', email: 'dad@weighttracker.app', heightM: 1.74 },
 };
 
-function genWeights(startKg, perDay, noise, { days = 120, gaps = [] } = {}) {
-  const out = [];
+interface GenOpts { days?: number; gaps?: number[][] }
+
+function genWeights(startKg: number, perDay: number, noise: number, { days = 120, gaps = [] }: GenOpts = {}): WeightEntry[] {
+  const out: WeightEntry[] = [];
   const today = todayISO();
   for (let i = 0; i < days; i++) {
     if (gaps.some(([a, b]) => i >= a && i <= b)) continue;
@@ -30,7 +37,9 @@ function genWeights(startKg, perDay, noise, { days = 120, gaps = [] } = {}) {
   return out;
 }
 
-const WEIGHT_PARAMS = {
+type WeightParam = [number, number, number, GenOpts];
+
+const WEIGHT_PARAMS: Record<string, WeightParam> = {
   parth: [88.0, 0.040, 0.5, { gaps: [[96, 99]] }],
   priya: [72.0, 0.018, 0.4, {}],
   arjun: [92.0, 0.030, 0.45, {}],
@@ -42,14 +51,15 @@ const WEIGHT_PARAMS = {
 // Membership facts only (uid/role/joinedAt) — name/email/heightM/color/initial
 // are derived from PEOPLE (via buildSeed's `profiles`) at render time, never
 // duplicated here.
-function member(uid, role, joinedDaysAgo = 30) {
+function member(uid: string, role: Role, joinedDaysAgo = 30): Member {
   return { uid, role, joinedAt: Date.now() - joinedDaysAgo * 86400000 };
 }
 
-const membersMap = (...ms) => Object.fromEntries(ms.map((m) => [m.uid, m]));
-const ago = (d) => Date.now() - d * 86400000;
+const membersMap = (...ms: Member[]): Record<string, Member> =>
+  Object.fromEntries(ms.map((m): [string, Member] => [m.uid, m]));
+const ago = (d: number): number => Date.now() - d * 86400000;
 
-const dashboards = [
+const dashboards: Dashboard[] = [
   {
     id: 'd1', name: 'Parth & Priya', ownerUid: 'parth', createdAt: ago(60), updatedAt: ago(0),
     members: membersMap(member('parth', 'owner', 60), member('priya', 'editor', 58)),
@@ -104,8 +114,8 @@ const dashboards = [
 ];
 
 // Habit completion logs for the primary dashboard (last 28 days, with a grace day).
-function genHabitLog(seedStr, graceDay = -1) {
-  const log = {};
+function genHabitLog(seedStr: string, graceDay = -1): HabitLog {
+  const log: HabitLog = {};
   const today = todayISO();
   let x = [...seedStr].reduce((a, c) => a + c.charCodeAt(0), 0);
   for (let i = 0; i < 28; i++) {
@@ -118,12 +128,12 @@ function genHabitLog(seedStr, graceDay = -1) {
   return log;
 }
 
-const habitLogsD1 = {
+const habitLogsD1: Record<string, Record<string, HabitLog>> = {
   parth: { h1: genHabitLog('p10k'), h2: genHabitLog('pnosugar', 3), h3: genHabitLog('pbreakfast'), h4: genHabitLog('pstrength') },
   priya: { h1: genHabitLog('r10k'), h2: genHabitLog('rnosugar'), h3: genHabitLog('rbreakfast'), h4: genHabitLog('rstrength') },
 };
 
-const nsvD1 = {
+const nsvD1: Record<string, Nsv[]> = {
   parth: [
     { id: 'n1', date: addDays(todayISO(), -4), text: 'Jeans fit looser 👖' },
     { id: 'n2', date: addDays(todayISO(), -8), text: 'Slept through the night' },
@@ -132,7 +142,7 @@ const nsvD1 = {
   priya: [{ id: 'n4', date: addDays(todayISO(), -6), text: 'More energy in the afternoon' }],
 };
 
-const invites = [
+const invites: Invite[] = [
   {
     id: 'inv1', dashboardId: 'ext-crew', dashboardName: 'Office fitness crew',
     fromUid: 'arjun', fromName: 'Arjun Mehta', fromInitial: 'Ar', toEmail: PEOPLE.parth.email,
@@ -141,9 +151,9 @@ const invites = [
 ];
 
 // Builds a fresh deep-ish copy each call so the store can be reset between tests.
-export function buildSeed() {
-  const profiles = {};
-  const weights = {};
+export function buildSeed(): Store {
+  const profiles: Record<string, Profile> = {};
+  const weights: Record<string, WeightEntry[]> = {};
   for (const uid of Object.keys(PEOPLE)) {
     profiles[uid] = { ...PEOPLE[uid] };
     const [s, p, n, opts] = WEIGHT_PARAMS[uid];

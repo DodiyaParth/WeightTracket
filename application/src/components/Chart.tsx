@@ -1,49 +1,64 @@
-import React, { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS, LineElement, PointElement, LinearScale, TimeScale, Tooltip, Filler,
+  type ChartOptions, type ChartData, type TooltipItem,
 } from 'chart.js';
 import 'chartjs-adapter-date-fns';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { trendSeries, SMOOTHING, projection, currentWeight } from '../lib/stats.js';
 import { isoToMs, todayISO, DAY_MS } from '../lib/date.js';
+import type { DashboardSettings, Goal, SeriesPoint } from '../types.js';
 
 ChartJS.register(LineElement, PointElement, LinearScale, TimeScale, Tooltip, Filler, annotationPlugin, zoomPlugin);
 
-const PRESETS = { '4W': 28, '3M': 90, '6M': 180, All: 9999 };
+const PRESETS: Record<string, number> = { '4W': 28, '3M': 90, '6M': 180, All: 9999 };
 
-function cssVar(name, fallback) {
+function cssVar(name: string, fallback: string): string {
   if (typeof getComputedStyle === 'undefined') return fallback;
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
-const FALLBACK = { '--p1': '#2aa897', '--p2': '#6c7be0', '--p3': '#e69a3b', '--p4': '#e5786f', '--p5': '#7a8aa0', '--muted': '#9aa0a6', '--border': '#e8eced', '--border-strong': '#dfe4e6', '--text-2': '#6b7380' };
-function resolve(c) {
+const FALLBACK: Record<string, string> = { '--p1': '#2aa897', '--p2': '#6c7be0', '--p3': '#e69a3b', '--p4': '#e5786f', '--p5': '#7a8aa0', '--muted': '#9aa0a6', '--border': '#e8eced', '--border-strong': '#dfe4e6', '--text-2': '#6b7380' };
+function resolve(c: string | null | undefined): string {
   if (!c) return FALLBACK['--p1'];
   const m = String(c).match(/var\((--[\w-]+)\)/);
   return m ? cssVar(m[1], FALLBACK[m[1]] || '#2aa897') : c;
 }
-const withAlpha = (hex, a) => {
+const withAlpha = (hex: string | null | undefined, a: number): string => {
   const h = resolve(hex);
   const aa = Math.round(a * 255).toString(16).padStart(2, '0');
   return /^#([0-9a-f]{6})$/i.test(h) ? h + aa : h;
 };
-const toPts = (arr) => arr.map((p) => ({ x: isoToMs(p.date), y: p.kg }));
+const toPts = (arr: SeriesPoint[]) => arr.map((p) => ({ x: isoToMs(p.date), y: p.kg }));
 
-export default function WeightChart({ people = [], series = {}, focusId, goal, status = 'On track', away = false, enoughData = true, settings = {} }) {
-  const [visible, setVisible] = useState(() => Object.fromEntries(people.map((p) => [p.uid, settings.shown?.[p.uid] ?? true])));
+interface ChartPerson { uid: string; name: string; color?: string; }
+
+interface WeightChartProps {
+  people?: ChartPerson[];
+  series?: Record<string, SeriesPoint[]>;
+  focusId: string;
+  goal?: Goal | null;
+  status?: string;
+  away?: boolean;
+  enoughData?: boolean;
+  settings?: DashboardSettings;
+}
+
+export default function WeightChart({ people = [], series = {}, focusId, goal, status = 'On track', away = false, enoughData = true, settings = {} }: WeightChartProps) {
+  const [visible, setVisible] = useState<Record<string, boolean>>(() => Object.fromEntries(people.map((p) => [p.uid, settings.shown?.[p.uid] ?? true])));
   const [smooth, setSmooth] = useState('Default');
   const [rangeKey, setRangeKey] = useState('3M');
-  const chartRef = useRef(null);
+  const chartRef = useRef<ChartJS<'line'>>(null);
   const layers = { raw: true, projection: true, ideal: true, goal: true, ...settings.layers };
 
   const focus = people.find((p) => p.uid === focusId) || people[0];
   const focusColor = resolve(focus?.color);
-  const alpha = SMOOTHING[smooth];
+  const alpha = SMOOTHING[smooth as keyof typeof SMOOTHING];
 
   const built = useMemo(() => {
     const datasets = [];
-    const allMs = [];
+    const allMs: number[] = [];
     people.forEach((p) => { (series[p.uid] || []).forEach((e) => allMs.push(isoToMs(e.date))); });
     const todayMs = allMs.length ? Math.max(...allMs) : isoToMs(todayISO());
     const minMs = allMs.length ? Math.min(...allMs) : todayMs - 90 * DAY_MS;
@@ -87,7 +102,7 @@ export default function WeightChart({ people = [], series = {}, focusId, goal, s
     const xMin = rangeKey === 'All' ? minMs : Math.max(minMs, todayMs - days * DAY_MS);
     const xMax = endMs;
 
-    const annotations = {
+    const annotations: Record<string, any> = {
       today: { type: 'line', xMin: todayMs, xMax: todayMs, borderColor: resolve('var(--border-strong)'), borderWidth: 1, borderDash: [3, 3], label: { display: true, content: 'Today', position: 'start', font: { size: 10 }, color: resolve('var(--muted)'), backgroundColor: 'transparent', yAdjust: -6 } },
     };
     if (layers.goal && goal?.targetKg != null) {
@@ -98,18 +113,18 @@ export default function WeightChart({ people = [], series = {}, focusId, goal, s
     return { datasets, xMin, xMax, annotations, showBand, showIdeal };
   }, [people, series, focusId, visible, smooth, rangeKey, goal, away, enoughData, alpha, focusColor, layers.raw, layers.ideal, layers.goal, layers.projection]);
 
-  const data = { datasets: built.datasets };
-  const options = {
+  const data: ChartData<'line'> = { datasets: built.datasets };
+  const options: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     scales: {
       x: { type: 'time', min: built.xMin, max: built.xMax, time: { tooltipFormat: 'MMM d, yyyy', displayFormats: { day: 'MMM d', week: 'MMM d', month: 'MMM yyyy' } }, grid: { display: false }, ticks: { color: resolve('var(--muted)'), maxRotation: 0, font: { size: 10 } }, border: { display: false } },
-      y: { ticks: { color: resolve('var(--muted)'), font: { size: 10 }, callback: (v) => `${v} kg` }, grid: { color: resolve('var(--border)') }, border: { display: false } },
+      y: { ticks: { color: resolve('var(--muted)'), font: { size: 10 }, callback: (v: number | string) => `${v} kg` }, grid: { color: resolve('var(--border)') }, border: { display: false } },
     },
     plugins: {
       legend: { display: false },
-      tooltip: { filter: (i) => !String(i.dataset.label).startsWith('_'), callbacks: { label: (i) => `${i.dataset.label}: ${i.parsed.y.toFixed(1)} kg` } },
+      tooltip: { filter: (i: TooltipItem<'line'>) => !String(i.dataset.label).startsWith('_'), callbacks: { label: (i: TooltipItem<'line'>) => `${i.dataset.label}: ${i.parsed.y!.toFixed(1)} kg` } },
       annotation: { annotations: built.annotations || {} },
       zoom: { pan: { enabled: true, mode: 'x' }, zoom: { wheel: { enabled: false }, pinch: { enabled: true }, mode: 'x' } },
     },

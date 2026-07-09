@@ -3,16 +3,17 @@
 // sorted ascending by date (use `sortEntries` to guarantee it).
 
 import { daysBetween, addDays, fuzzyMonth, todayISO } from './date.js';
+import type { SeriesPoint, Goal } from '../types.js';
 
 export const SMOOTHING = { Less: 0.34, Default: 0.18, More: 0.09 };
 
-export const sortEntries = (entries) =>
+export const sortEntries = <T extends SeriesPoint>(entries?: T[] | null): T[] =>
   [...(entries || [])].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
 // Exponential moving average — the smoothed "trend" hero line.
-export function ema(values, alpha = SMOOTHING.Default) {
-  const out = [];
-  let prev;
+export function ema(values: number[], alpha: number = SMOOTHING.Default): number[] {
+  const out: number[] = [];
+  let prev: number | undefined;
   for (const v of values) {
     prev = prev === undefined ? v : alpha * v + (1 - alpha) * prev;
     out.push(+prev.toFixed(2));
@@ -21,36 +22,36 @@ export function ema(values, alpha = SMOOTHING.Default) {
 }
 
 // Returns [{ date, kg }] of the EMA aligned to the entry dates.
-export function trendSeries(entries, alpha = SMOOTHING.Default) {
+export function trendSeries(entries?: SeriesPoint[] | null, alpha: number = SMOOTHING.Default): SeriesPoint[] {
   const s = sortEntries(entries);
   const e = ema(s.map((d) => d.kg), alpha);
   return s.map((d, i) => ({ date: d.date, kg: e[i] }));
 }
 
-export const spanDays = (entries) => {
+export const spanDays = (entries?: SeriesPoint[] | null): number => {
   const s = sortEntries(entries);
   return s.length < 2 ? 0 : daysBetween(s[0].date, s[s.length - 1].date);
 };
 
-export const currentWeight = (entries) => {
+export const currentWeight = (entries?: SeriesPoint[] | null): number | null => {
   const s = sortEntries(entries);
   return s.length ? s[s.length - 1].kg : null;
 };
 
-export function trendWeight(entries, alpha = SMOOTHING.Default) {
+export function trendWeight(entries?: SeriesPoint[] | null, alpha: number = SMOOTHING.Default): number | null {
   const t = trendSeries(entries, alpha);
   return t.length ? t[t.length - 1].kg : null;
 }
 
-export function totalChange(entries) {
+export function totalChange(entries?: SeriesPoint[] | null): number {
   const s = sortEntries(entries);
   if (s.length < 2) return 0;
   return +(s[s.length - 1].kg - s[0].kg).toFixed(2);
 }
 
 // Value of the trend nearest (on or before) `targetIso`.
-function trendValueOn(trend, targetIso) {
-  let best = null;
+function trendValueOn(trend: SeriesPoint[], targetIso: string): number | null {
+  let best: SeriesPoint | null = null;
   for (const p of trend) {
     if (p.date <= targetIso) best = p;
     else break;
@@ -58,19 +59,31 @@ function trendValueOn(trend, targetIso) {
   return best ? best.kg : trend.length ? trend[0].kg : null;
 }
 
+export interface StatsOpts {
+  window?: number;
+  alpha?: number;
+  todayIso?: string;
+  minDays?: number;
+}
+
 // kg/week from the trend over the last `window` days (negative = losing).
-export function weeklyRate(entries, { window = 14, alpha = SMOOTHING.Default } = {}) {
+export function weeklyRate(entries?: SeriesPoint[] | null, { window = 14, alpha = SMOOTHING.Default }: StatsOpts = {}): number {
   const trend = trendSeries(entries, alpha);
   if (trend.length < 2) return 0;
   const last = trend[trend.length - 1];
   const fromIso = addDays(last.date, -window);
-  const past = trendValueOn(trend, fromIso);
+  const past = trendValueOn(trend, fromIso)!; // trend.length >= 2 ⇒ never null
   const days = Math.min(window, spanDays(entries)) || 1;
   return +(((last.kg - past) / days) * 7).toFixed(2);
 }
 
+export interface Delta {
+  window: number;
+  value: number | null;
+}
+
 // Multi-window deltas; each is null when there isn't enough history.
-export function deltas(entries, windows = [1, 7, 14, 28]) {
+export function deltas(entries?: SeriesPoint[] | null, windows: number[] = [1, 7, 14, 28]): Delta[] {
   const s = sortEntries(entries);
   if (!s.length) return windows.map((w) => ({ window: w, value: null }));
   const last = s[s.length - 1];
@@ -85,10 +98,22 @@ export function deltas(entries, windows = [1, 7, 14, 28]) {
   });
 }
 
+export type ProjectionStatus = 'insufficient' | 'away' | 'ok';
+export interface Projection {
+  status: ProjectionStatus;
+  slopePerWeek: number | null;
+  etaISO: string | null;
+  rangeLabel: string | null;
+}
+
 // Honest forward projection.
 //  status: 'insufficient' (<minDays), 'away' (trend not moving toward goal),
 //          'ok' (a hedged ETA range).
-export function projection(entries, goal, { todayIso = todayISO(), minDays = 14, alpha = SMOOTHING.Default } = {}) {
+export function projection(
+  entries?: SeriesPoint[] | null,
+  goal?: { targetKg?: number | null; target?: number | null } | null,
+  { todayIso = todayISO(), minDays = 14, alpha = SMOOTHING.Default }: StatsOpts = {},
+): Projection {
   const trend = trendSeries(entries, alpha);
   const have = spanDays(entries);
   if (trend.length < 2 || have < minDays) {
@@ -96,7 +121,7 @@ export function projection(entries, goal, { todayIso = todayISO(), minDays = 14,
   }
   const last = trend[trend.length - 1];
   const fromIso = addDays(last.date, -14);
-  const past = trendValueOn(trend, fromIso);
+  const past = trendValueOn(trend, fromIso)!; // trend.length >= 2 ⇒ never null
   const days = Math.min(14, have) || 1;
   const slopePerDay = (last.kg - past) / days; // negative = losing
   const slopePerWeek = +(slopePerDay * 7).toFixed(2);
@@ -128,7 +153,7 @@ export function projection(entries, goal, { todayIso = todayISO(), minDays = 14,
 // swing the group number) and nets them together — a member who gained
 // correctly reduces the total instead of being silently dropped, unlike a
 // naive "sum of members who lost weight only".
-export function togetherChange(seriesByUid, uids, alpha = SMOOTHING.Default) {
+export function togetherChange(seriesByUid: Record<string, SeriesPoint[]>, uids?: string[] | null, alpha: number = SMOOTHING.Default): number {
   let net = 0;
   (uids || []).forEach((uid) => {
     const trend = trendSeries(seriesByUid[uid] || [], alpha);
@@ -137,8 +162,18 @@ export function togetherChange(seriesByUid, uids, alpha = SMOOTHING.Default) {
   return +(-net).toFixed(2); // positive = lost together, negative = net gained
 }
 
+export interface Summary {
+  current: number | null;
+  trend: number | null;
+  total: number;
+  weekly: number;
+  spanDays: number;
+  deltas: Delta[];
+  projection: Projection;
+}
+
 // Convenience bundle for the dashboard stat tiles.
-export function summarize(entries, goal, opts = {}) {
+export function summarize(entries?: SeriesPoint[] | null, goal?: Goal | null, opts: StatsOpts = {}): Summary {
   return {
     current: currentWeight(entries),
     trend: trendWeight(entries, opts.alpha),

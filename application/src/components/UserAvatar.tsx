@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Avatar } from './Icon.jsx';
 import { initialsOf } from '../lib/user.js';
 
+interface UserAvatarProps {
+  user?: { photoURL?: string | null; displayName?: string | null; email?: string | null } | null;
+  size?: number;
+  color?: string;
+}
+
 // Renders the user's Google profile photo when available, falling back to
 // initials (also if the image fails to load).
-export default function UserAvatar({ user, size = 40, color = 'var(--accent)' }) {
+export default function UserAvatar({ user, size = 40, color = 'var(--accent)' }: UserAvatarProps) {
   const [broken, setBroken] = useState(false);
 
   if (user?.photoURL && !broken) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import Icon, { Logo } from './Icon.jsx';
 import UserAvatar from './UserAvatar.jsx';
@@ -93,7 +93,13 @@ function Bell() {
   );
 }
 
-export function Topbar({ title, sub, primary }) {
+interface TopbarProps {
+  title?: ReactNode;
+  sub?: ReactNode;
+  primary?: ReactNode;
+}
+
+export function Topbar({ title, sub, primary }: TopbarProps) {
   const quick = useQuickLog();
   const action = primary === undefined
     ? <button className="btn primary" onClick={() => quick.open()}><Icon name="plus" color="#fff" />Log my weight</button>
@@ -109,7 +115,14 @@ export function Topbar({ title, sub, primary }) {
   );
 }
 
-export default function Layout({ title, sub, primary, children }) {
+interface LayoutProps {
+  title?: ReactNode;
+  sub?: ReactNode;
+  primary?: ReactNode;
+  children?: ReactNode;
+}
+
+export default function Layout({ title, sub, primary, children }: LayoutProps) {
   return (
     <div className="app">
       <Sidebar />

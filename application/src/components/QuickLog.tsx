@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useEffect, useId } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect, useId, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from './Icon.jsx';
 import { Toast } from './ui.jsx';
@@ -10,25 +10,44 @@ import { repo } from '../data/repo.js';
 import { todayISO, addDays, fmtLong } from '../lib/date.js';
 import { fmtKg } from '../lib/format.js';
 import { classifyEntries } from '../lib/collisions.js';
+import type { WeightEntry } from '../types.js';
 
-const Ctx = createContext({ open: () => {} });
+// What the modal can be opened with: a full entry (edit) or just a `date`
+// (prefill the add form for a specific day) — hence Partial.
+type QuickLogEntry = Partial<WeightEntry> | null;
+
+interface QuickLogContextValue {
+  open: (entry?: QuickLogEntry) => void;
+}
+
+const Ctx = createContext<QuickLogContextValue>({ open: () => {} });
 export const useQuickLog = () => useContext(Ctx);
 
-function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }) {
+interface QuickLogModalProps {
+  entry?: QuickLogEntry;
+  uid: string;
+  lastKg: number | null;
+  weights?: WeightEntry[] | null;
+  onClose: () => void;
+  onSaved: (msg: string) => void;
+}
+
+function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }: QuickLogModalProps) {
   const nav = useNavigate();
   // `entry` may carry just a `date` (no id) to open the "add" form prefilled
   // to a specific day — e.g. tapping an empty day in the History calendar —
   // without that being mistaken for editing an existing entry.
   const editing = !!entry?.id;
-  const [weight, setWeight] = useState(editing ? String(entry.kg) : lastKg != null ? String(lastKg) : '70.00');
+  const entryId = entry?.id;
+  const [weight, setWeight] = useState(editing ? String(entry?.kg) : lastKg != null ? String(lastKg) : '70.00');
   const [date, setDate] = useState(entry?.date || todayISO());
   const [note, setNote] = useState(entry?.note || '');
   const [showNote, setShowNote] = useState(!!entry?.note);
-  const [info, setInfo] = useState(null);
-  const [conflict, setConflict] = useState(null);
+  const [info, setInfo] = useState<{ kg: number; prevKg?: number } | null>(null);
+  const [conflict, setConflict] = useState<{ kg: number; prevKg: number } | null>(null);
   const { run, busy, error } = useAsyncAction();
-  const weightRef = useRef(null);
-  const modalRef = useRef(null);
+  const weightRef = useRef<HTMLInputElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
   useDialogA11y(modalRef, onClose, { skipInitialFocus: true });
@@ -37,12 +56,12 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }) {
     return () => clearTimeout(t);
   }, []);
 
-  const step = (d) => setWeight((w) => Math.max(0, (parseFloat(w) || 0) + d).toFixed(2));
+  const step = (d: number) => setWeight((w) => Math.max(0, (parseFloat(w) || 0) + d).toFixed(2));
   const chips = [['Today', todayISO()], ['Yesterday', addDays(todayISO(), -1)], ['2 days ago', addDays(todayISO(), -2)]];
 
-  const doSave = async (kg) => {
+  const doSave = async (kg: number) => {
     try {
-      await run(() => (editing ? repo.updateWeight(uid, entry.id, { kg, note, date }) : repo.addWeight(uid, { date, kg, note })));
+      await run(() => (editing ? repo.updateWeight(uid, entryId!, { kg, note, date }) : repo.addWeight(uid, { date, kg, note })));
     } catch { return; }
     onSaved(`${editing ? 'Updated' : 'Logged'} ${fmtKg(kg)} kg · ${fmtLong(date)}`);
     onClose();
@@ -61,11 +80,11 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }) {
   };
   const del = async () => {
     if (busy) return;
-    try { await run(() => repo.deleteWeight(uid, entry.id)); } catch { return; }
+    try { await run(() => repo.deleteWeight(uid, entryId!)); } catch { return; }
     onSaved('Entry deleted');
     onClose();
   };
-  const onKey = (e) => { if (e.key === 'Enter' && !busy) save(); };
+  const onKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !busy) save(); };
 
   return (
     <div className="modal-scrim" onClick={onClose}>
@@ -137,13 +156,13 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }) {
   );
 }
 
-export function QuickLogProvider({ children }) {
+export function QuickLogProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { data: weights } = useWeights(user?.uid);
-  const [state, setState] = useState(null);
-  const [toast, setToast] = useState(null);
-  const open = (e) => setState({ entry: e });
-  const onSaved = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2600); };
+  const [state, setState] = useState<{ entry?: QuickLogEntry } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const open = (e?: QuickLogEntry) => setState({ entry: e });
+  const onSaved = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2600); };
   const lastKg = weights && weights.length ? weights[0].kg : null;
 
   return (

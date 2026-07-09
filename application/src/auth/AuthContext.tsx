@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -10,21 +10,34 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../firebase.js';
 import { repo } from '../data/repo.js';
+import { errorCode } from '../lib/errors.js';
+import type { AuthUser } from '../types.js';
 
-const AuthContext = createContext(null);
+interface AuthContextValue {
+  user: AuthUser | null;
+  loading: boolean;
+  error: string | null;
+  configured: boolean;
+  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<boolean>;
+  signUpWithEmail: (email: string, password: string) => Promise<boolean>;
+  signOutUser: () => Promise<void>;
+}
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(isFirebaseConfigured);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isFirebaseConfigured) {
       setLoading(false);
       return undefined;
     }
-    getRedirectResult(auth).catch((e) => setError(e?.code || 'sign-in-failed'));
-    const unsub = onAuthStateChanged(auth, (u) => {
+    getRedirectResult(auth!).catch((e) => setError(errorCode(e) || 'sign-in-failed'));
+    const unsub = onAuthStateChanged(auth!, (u) => {
       setUser(u);
       setLoading(false);
     });
@@ -43,16 +56,16 @@ export function AuthProvider({ children }) {
       return;
     }
     try {
-      await signInWithPopup(auth, googleProvider);
+      await signInWithPopup(auth!, googleProvider);
     } catch (e) {
-      const code = e?.code || '';
+      const code = errorCode(e) || '';
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
       if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
         try {
-          await signInWithRedirect(auth, googleProvider);
+          await signInWithRedirect(auth!, googleProvider);
           return;
         } catch (e2) {
-          setError(e2?.code || 'sign-in-failed');
+          setError(errorCode(e2) || 'sign-in-failed');
           return;
         }
       }
@@ -60,26 +73,26 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const signInWithEmail = async (email, password) => {
+  const signInWithEmail = async (email: string, password: string) => {
     setError(null);
     if (!isFirebaseConfigured) { setError('not-configured'); return false; }
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth!, email, password);
       return true;
     } catch (e) {
-      setError(e?.code || 'sign-in-failed');
+      setError(errorCode(e) || 'sign-in-failed');
       return false;
     }
   };
 
-  const signUpWithEmail = async (email, password) => {
+  const signUpWithEmail = async (email: string, password: string) => {
     setError(null);
     if (!isFirebaseConfigured) { setError('not-configured'); return false; }
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      await createUserWithEmailAndPassword(auth!, email, password);
       return true;
     } catch (e) {
-      setError(e?.code || 'sign-up-failed');
+      setError(errorCode(e) || 'sign-up-failed');
       return false;
     }
   };
@@ -91,7 +104,7 @@ export function AuthProvider({ children }) {
     try {
       Object.keys(sessionStorage).filter((k) => k.startsWith('wt_landed_')).forEach((k) => sessionStorage.removeItem(k));
     } catch { /* ignore */ }
-    await signOut(auth);
+    await signOut(auth!);
   };
 
   const value = useMemo(

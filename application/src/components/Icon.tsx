@@ -1,7 +1,7 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 
 // Minimal line icons (20x20, currentColor stroke).
-const P = {
+const P: Record<string, string[]> = {
   home: ['M2.5 9.5 L10 3 L17.5 9.5', 'M4.5 8.5 L4.5 17 L15.5 17 L15.5 8.5'],
   chart: ['M3 17 L17 17', 'M5.5 17 L5.5 11', 'M10 17 L10 5.5', 'M14.5 17 L14.5 9'],
   plus: ['M10 4.5 L10 15.5', 'M4.5 10 L15.5 10'],
@@ -30,7 +30,7 @@ const P = {
   scale: ['M3.5 6 L16.5 6 L18 17 L2 17 Z', 'M10 6 L10 9'],
   eye: ['M2 10 C5 5.5 15 5.5 18 10 C15 14.5 5 14.5 2 10 Z'],
 };
-const CIRC = {
+const CIRC: Record<string, number[][]> = {
   user: [[10, 7.5, 3]],
   users: [[5, 8, 2], [13.2, 8, 2.4]],
   search: [[9, 9, 5]],
@@ -41,7 +41,14 @@ const CIRC = {
   scale: [[10, 11.5, 2.5]],
 };
 
-export default function Icon({ name, size = 20, color = 'currentColor', stroke = 1.8 }) {
+interface IconProps {
+  name: string;
+  size?: number;
+  color?: string;
+  stroke?: number;
+}
+
+export default function Icon({ name, size = 20, color = 'currentColor', stroke = 1.8 }: IconProps) {
   const paths = P[name] || [];
   const circles = CIRC[name] || [];
   return (
@@ -56,8 +63,7 @@ export default function Icon({ name, size = 20, color = 'currentColor', stroke =
   );
 }
 
-export function Logo({ size = 30 }) {
-  const u = size / 48;
+export function Logo({ size = 30 }: { size?: number }) {
   return (
     <span className="logo" style={{ width: size, height: size, borderRadius: size * 0.3 }}>
       <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
@@ -68,7 +74,14 @@ export function Logo({ size = 30 }) {
   );
 }
 
-export function Avatar({ children, color = 'var(--accent)', size = 40, ring = false }) {
+interface AvatarProps {
+  children?: ReactNode;
+  color?: string;
+  size?: number;
+  ring?: boolean;
+}
+
+export function Avatar({ children, color = 'var(--accent)', size = 40, ring = false }: AvatarProps) {
   return (
     <span
       className={'avatar' + (ring ? ' ring' : '')}
@@ -80,7 +93,12 @@ export function Avatar({ children, color = 'var(--accent)', size = 40, ring = fa
 }
 
 // Overlapping avatar stack (shows up to `max`, then a +N chip). Open-ended people.
-export function AvatarStack({ members, size = 28, max = 3 }) {
+interface AvatarStackMember {
+  color?: string;
+  initial?: ReactNode;
+}
+
+export function AvatarStack({ members, size = 28, max = 3 }: { members: AvatarStackMember[]; size?: number; max?: number }) {
   const shown = members.slice(0, max);
   const extra = members.length - shown.length;
   return (
@@ -98,7 +116,7 @@ export function AvatarStack({ members, size = 28, max = 3 }) {
 }
 
 // G logo for the Google button
-export function GoogleG({ size = 18 }) {
+export function GoogleG({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48">
       <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.4 17.6 9.5 24 9.5z" />

@@ -1,35 +1,51 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Icon from './Icon.jsx';
 import { Confirm } from './Modal.jsx';
 import { repo } from '../data/repo.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { todayISO, addDays, isoToMs } from '../lib/date.js';
 import { currentStreak, wasRepaired, gridDays, GRACE } from '../lib/habits.js';
+import type { Dashboard, EnrichedMember, Habit, HabitLog } from '../types.js';
 
 const DAYS = 28;
 
-function dayLabel(offset) {
+// Habit logs scoped to a single dashboard: uid -> habitId -> (date -> mark).
+type DashboardLogs = Record<string, Record<string, HabitLog>>;
+
+function dayLabel(offset: number): string {
   if (offset === 0) return 'Today';
   if (offset === 1) return 'Yesterday';
   const ms = isoToMs(addDays(todayISO(), -offset));
   return new Date(ms).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
-function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, onAddHabit, onRename, onDelete }) {
+interface ChecklistProps {
+  dashboardId: string;
+  habits: Habit[];
+  logs: DashboardLogs;
+  meUid: string;
+  meName: string;
+  readOnly: boolean;
+  onAddHabit: () => void;
+  onRename: (id: string, label: string) => Promise<void> | void;
+  onDelete: (id: string) => Promise<void> | void;
+}
+
+function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, onAddHabit, onRename, onDelete }: ChecklistProps) {
   const [offset, setOffset] = useState(0);
-  const [pendingIds, setPendingIds] = useState(() => new Set());
-  const [failedId, setFailedId] = useState(null);
-  const [editingId, setEditingId] = useState(null);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
+  const [failedId, setFailedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState<Habit | null>(null);
   const { run: runEdit, busy: editBusy, error: editError } = useAsyncAction();
   const { run: runDelete, busy: deleteBusy, error: deleteError } = useAsyncAction();
   const date = addDays(todayISO(), -offset);
   const myLogs = logs[meUid] || {};
-  const isDone = (h) => !!myLogs[h.id]?.[date];
+  const isDone = (h: Habit) => !!myLogs[h.id]?.[date];
   const count = habits.filter(isDone).length;
 
-  const toggle = async (h) => {
+  const toggle = async (h: Habit) => {
     if (readOnly || pendingIds.has(h.id)) return;
     setPendingIds((s) => new Set(s).add(h.id));
     setFailedId(null);
@@ -42,17 +58,17 @@ function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, onAddHa
     }
   };
 
-  const startEdit = (h) => { setEditingId(h.id); setEditLabel(h.label); };
+  const startEdit = (h: Habit) => { setEditingId(h.id); setEditLabel(h.label); };
   const saveEdit = async () => {
     if (!editLabel.trim()) { setEditingId(null); return; }
     try {
-      await runEdit(() => onRename(editingId, editLabel.trim()));
+      await runEdit(() => onRename(editingId!, editLabel.trim()));
     } catch { return; }
     setEditingId(null);
   };
   const confirmDelete = async () => {
     try {
-      await runDelete(() => onDelete(deleteTarget.id));
+      await runDelete(() => onDelete(deleteTarget!.id));
     } catch { return; }
     setDeleteTarget(null);
   };
@@ -118,15 +134,25 @@ function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, onAddHa
   );
 }
 
-function StreakGrid({ members, habits, logs, meUid, readOnly, dashboardId, teamLabel }) {
+interface StreakGridProps {
+  members: EnrichedMember[];
+  habits: Habit[];
+  logs: DashboardLogs;
+  meUid: string;
+  readOnly: boolean;
+  dashboardId: string;
+  teamLabel?: string;
+}
+
+function StreakGrid({ members, habits, logs, meUid, readOnly, dashboardId, teamLabel }: StreakGridProps) {
   const [span, setSpan] = useState('Month');
   const [scope, setScope] = useState('all');
-  const [pendingKey, setPendingKey] = useState(null);
-  const [failedKey, setFailedKey] = useState(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [failedKey, setFailedKey] = useState<string | null>(null);
   const n = span === 'Week' ? 7 : DAYS;
   const days = gridDays(n);
 
-  const cellKind = (h, date) => {
+  const cellKind = (h: Habit, date: string): string => {
     if (scope !== 'all') { const v = logs[scope]?.[h.id]?.[date]; return v === GRACE ? 'grace' : v ? 'both' : 'none'; }
     const vals = members.map((m) => logs[m.uid]?.[h.id]?.[date]);
     if (vals.some((v) => v === GRACE)) return 'grace';
@@ -135,9 +161,9 @@ function StreakGrid({ members, habits, logs, meUid, readOnly, dashboardId, teamL
     if (done === members.length) return 'both';
     return 'one';
   };
-  const cls = (k) => 'streak-cell' + (k === 'both' ? ' on' : k === 'one' ? ' on l2' : k === 'grace' ? ' grace' : '');
+  const cls = (k: string) => 'streak-cell' + (k === 'both' ? ' on' : k === 'one' ? ' on l2' : k === 'grace' ? ' grace' : '');
   const canEdit = !readOnly && scope === meUid;
-  const toggleCell = async (h, date) => {
+  const toggleCell = async (h: Habit, date: string) => {
     const key = `${h.id}_${date}`;
     if (!canEdit || pendingKey === key) return;
     setPendingKey(key);
@@ -200,7 +226,15 @@ function StreakGrid({ members, habits, logs, meUid, readOnly, dashboardId, teamL
   );
 }
 
-export default function HabitsSection({ dashboard, members, logs, meUid, readOnly }) {
+interface HabitsSectionProps {
+  dashboard: Dashboard;
+  members: EnrichedMember[];
+  logs: DashboardLogs;
+  meUid: string;
+  readOnly: boolean;
+}
+
+export default function HabitsSection({ dashboard, members, logs, meUid, readOnly }: HabitsSectionProps) {
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState('');
   const { run, busy, error } = useAsyncAction();
@@ -215,9 +249,9 @@ export default function HabitsSection({ dashboard, members, logs, meUid, readOnl
     } catch { return; }
     setLabel(''); setAdding(false);
   };
-  const renameHabit = (id, newLabel) =>
+  const renameHabit = (id: string, newLabel: string) =>
     repo.updateDashboard(dashboard.id, { habits: habits.map((h) => (h.id === id ? { ...h, label: newLabel } : h)) });
-  const deleteHabit = (id) =>
+  const deleteHabit = (id: string) =>
     repo.updateDashboard(dashboard.id, { habits: habits.filter((h) => h.id !== id) });
 
   return (

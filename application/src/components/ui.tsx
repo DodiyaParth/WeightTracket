@@ -1,10 +1,12 @@
-import React from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import Icon from './Icon.jsx';
 import { ACCESS } from '../lib/dashboards.js';
+import type { Role } from '../types.js';
+import type { ChangeFormat } from '../lib/format.js';
 
 // Shared toggle switch — a real <button role="switch">, not a bare <span
 // onClick>, so it's reachable and operable from the keyboard (DEV-28/29).
-export function Toggle({ on, onClick, label }) {
+export function Toggle({ on, onClick, label }: { on?: boolean; onClick?: () => void; label?: string }) {
   return (
     <button
       type="button" onClick={onClick} role="switch" aria-checked={!!on} aria-label={label}
@@ -17,7 +19,15 @@ export function Toggle({ on, onClick, label }) {
 
 // Shared segmented single-select control — a real radiogroup (DEV-28): the
 // selected option is marked with aria-checked + a checkmark, never color alone.
-export function SegRadio({ value, onChange, options, ariaLabel, disabled }) {
+interface SegRadioProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[][];
+  ariaLabel?: string;
+  disabled?: boolean;
+}
+
+export function SegRadio({ value, onChange, options, ariaLabel, disabled }: SegRadioProps) {
   return (
     <div className="seg" role="radiogroup" aria-label={ariaLabel}>
       {options.map(([k, label]) => (
@@ -31,7 +41,7 @@ export function SegRadio({ value, onChange, options, ariaLabel, disabled }) {
 }
 
 // One role badge used everywhere. access: 'owner' | 'editor' | 'viewer'.
-export function RoleBadge({ access }) {
+export function RoleBadge({ access }: { access: Role }) {
   const a = ACCESS[access] || ACCESS.viewer;
   const cls = access === 'viewer' ? 'tag view' : access === 'owner' ? 'tag owner' : 'tag editor';
   return (
@@ -44,7 +54,7 @@ export function RoleBadge({ access }) {
 
 // Renders a formatChange() result with a glyph + word-carrying text, never
 // relying on color alone (see lib/format.js).
-export function ChangeText({ change, style }) {
+export function ChangeText({ change, style }: { change: ChangeFormat; style?: CSSProperties }) {
   return (
     <span className={'change-' + change.tone} style={style} aria-label={change.aria}>
       <span aria-hidden="true">{change.glyph}</span> {change.text}
@@ -54,7 +64,7 @@ export function ChangeText({ change, style }) {
 
 // A distinct "couldn't load" state (rules denial, offline, etc.) — must never be
 // confused with a genuine empty/not-found state (see DEV-13).
-export function RetryCard({ title = 'Couldn’t load this', message = 'Check your connection and try again.', onRetry }) {
+export function RetryCard({ title = 'Couldn’t load this', message = 'Check your connection and try again.', onRetry }: { title?: ReactNode; message?: ReactNode; onRetry?: () => void }) {
   return (
     <div className="empty">
       <span className="empty-ic" style={{ background: 'var(--amber-tint)' }}><Icon name="warn" size={26} color="#b9742a" /></span>
@@ -65,7 +75,7 @@ export function RetryCard({ title = 'Couldn’t load this', message = 'Check you
   );
 }
 
-export function Toast({ children }) {
+export function Toast({ children }: { children?: ReactNode }) {
   return (
     <div className="toast">
       <Icon name="check" size={16} color="#fff" />

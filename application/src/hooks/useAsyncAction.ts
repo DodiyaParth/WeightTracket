@@ -6,15 +6,15 @@ import { useState, useCallback } from 'react';
 // confirms, not an undo action.
 export function useAsyncAction() {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const run = useCallback(async (fn) => {
+  const run = useCallback(async <T>(fn: () => T | Promise<T>): Promise<T> => {
     setBusy(true);
     setError(null);
     try {
       return await fn();
     } catch (e) {
-      setError(e?.message || 'Something went wrong. Please try again.');
+      setError((e as { message?: string } | null)?.message || 'Something went wrong. Please try again.');
       throw e;
     } finally {
       setBusy(false);

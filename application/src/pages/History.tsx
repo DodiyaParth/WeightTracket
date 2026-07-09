@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Layout from '../components/Layout.jsx';
 import Icon from '../components/Icon.jsx';
 import { Confirm } from '../components/Modal.jsx';
@@ -10,27 +10,28 @@ import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { repo } from '../data/repo.js';
 import { todayISO, fmtLong } from '../lib/date.js';
 import { fmtKg } from '../lib/format.js';
+import type { WeightEntry } from '../types.js';
 
 const VIEW_OPTIONS = [['list', 'List'], ['calendar', 'Calendar']];
 
-const monthKey = (dateIso) => dateIso.slice(0, 7);
-const monthLabel = (key) => {
+const monthKey = (dateIso: string) => dateIso.slice(0, 7);
+const monthLabel = (key: string) => {
   const [y, m] = key.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 };
-const addMonths = (key, n) => {
+const addMonths = (key: string, n: number) => {
   const [y, m] = key.split('-').map(Number);
   const d = new Date(Date.UTC(y, m - 1 + n, 1));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 };
 
-function ListView({ entries, onEdit, onDelete }) {
+function ListView({ entries, onEdit, onDelete }: { entries: WeightEntry[]; onEdit: (e: WeightEntry) => void; onDelete: (e: WeightEntry) => void }) {
   const groups = useMemo(() => {
-    const m = new Map();
+    const m = new Map<string, WeightEntry[]>();
     entries.forEach((e) => {
       const k = monthKey(e.date);
       if (!m.has(k)) m.set(k, []);
-      m.get(k).push(e);
+      m.get(k)!.push(e);
     });
     return Array.from(m.entries());
   }, [entries]);
@@ -59,11 +60,11 @@ function ListView({ entries, onEdit, onDelete }) {
   );
 }
 
-function CalendarView({ byDate, month, onMonth, onDay }) {
+function CalendarView({ byDate, month, onMonth, onDay }: { byDate: Map<string, WeightEntry>; month: string; onMonth: (m: string) => void; onDay: (date: string, e?: WeightEntry) => void }) {
   const [y, m] = month.split('-').map(Number);
   const startWeekday = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
   const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const cells = [];
+  const cells: (string | null)[] = [];
   for (let i = 0; i < startWeekday; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
   const today = todayISO();
@@ -103,12 +104,12 @@ export default function History() {
   const quick = useQuickLog();
   const [view, setView] = useState('list');
   const [month, setMonth] = useState(() => monthKey(todayISO()));
-  const [del, setDel] = useState(null);
+  const [del, setDel] = useState<WeightEntry | null>(null);
   const { run: runDelete, busy: deleting, error: deleteError } = useAsyncAction();
 
-  const byDate = useMemo(() => new Map((entries || []).map((e) => [e.date, e])), [entries]);
+  const byDate = useMemo(() => new Map((entries || []).map((e): [string, WeightEntry] => [e.date, e])), [entries]);
   const confirmDelete = async () => {
-    try { await runDelete(() => repo.deleteWeight(user.uid, del.id)); } catch { return; }
+    try { await runDelete(() => repo.deleteWeight(user!.uid, del!.id)); } catch { return; }
     setDel(null);
   };
 
@@ -120,7 +121,7 @@ export default function History() {
 
       {loading && !entries && <div className="skel" style={{ height: 200, borderRadius: 12 }} />}
 
-      {!loading && error && (
+      {!loading && !!error && (
         <RetryCard title="Couldn’t load your history" message="Check your connection and try again." onRetry={reload} />
       )}
 

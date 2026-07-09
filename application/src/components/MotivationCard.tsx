@@ -1,11 +1,18 @@
-import React from 'react';
 import Icon from './Icon.jsx';
 import { ChangeText } from './ui.jsx';
 import { getMessage } from '../lib/motivation.js';
 import { formatChange } from '../lib/format.js';
 
+interface MotivationCardProps {
+  person: { name: string };
+  state: string;
+  milestone5?: number;
+  milestone10?: number;
+  progress?: number;
+}
+
 // Per-person, self-anchored motivation (REQUIREMENTS §6.4).
-export default function MotivationCard({ person, state, milestone5 = 0, milestone10 = 0, progress = 0 }) {
+export default function MotivationCard({ person, state, milestone5 = 0, milestone10 = 0, progress = 0 }: MotivationCardProps) {
   const m = getMessage(state, { milestone5 });
   return (
     <div className="card" style={{ background: 'linear-gradient(160deg,#effaf8,#ffffff)' }}>

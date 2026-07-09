@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import Login from './pages/Login.jsx';
 import DashboardsList from './pages/DashboardsList.jsx';

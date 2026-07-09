@@ -1,2 +1,13 @@
+# Keep application/src TypeScript-only: block newly staged .js/.jsx under it.
+new_js=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^application/src/.*\.jsx?$' || true)
+if [ -n "$new_js" ]; then
+  echo "Commit blocked: application/src is TypeScript-only. Rename these to .ts/.tsx:"
+  echo "$new_js"
+  exit 1
+fi
+
+echo "Type-checking application source (strict) before commit..."
+npm run typecheck || exit 1
+
 echo "Running application test suite + coverage thresholds before commit..."
-npm run test:coverage
+npm run test:coverage || exit 1

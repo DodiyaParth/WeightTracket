@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal, { Confirm } from './Modal.jsx';
 import Icon from './Icon.jsx';
@@ -6,17 +6,27 @@ import { Toggle } from './ui.jsx';
 import { repo } from '../data/repo.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { memberList } from '../lib/dashboards.js';
+import type { Dashboard, Profile } from '../types.js';
 
 const LAYER_LABELS = [['raw', 'Raw daily'], ['projection', 'Projected range'], ['ideal', 'Ideal line'], ['goal', 'Goal band']];
 
-export default function DashSettings({ dashboard, profiles = {}, meUid, onClose, onEditGoals, onManageSharing }) {
+interface DashSettingsProps {
+  dashboard: Dashboard;
+  profiles?: Record<string, Profile>;
+  meUid: string;
+  onClose: () => void;
+  onEditGoals: () => void;
+  onManageSharing: () => void;
+}
+
+export default function DashSettings({ dashboard, profiles = {}, meUid, onClose, onEditGoals, onManageSharing }: DashSettingsProps) {
   const nav = useNavigate();
   const members = memberList(dashboard, profiles);
   const initial = dashboard.settings || {};
   const [name, setName] = useState(dashboard.name || '');
-  const [layers, setLayers] = useState(() => ({ raw: true, projection: true, ideal: true, goal: true, ...initial.layers }));
-  const [shown, setShown] = useState(() => Object.fromEntries(members.map((m) => [m.uid, initial.shown?.[m.uid] ?? true])));
-  const [dangerAction, setDangerAction] = useState(null); // 'delete' | 'leave'
+  const [layers, setLayers] = useState<Record<string, boolean>>(() => ({ raw: true, projection: true, ideal: true, goal: true, ...initial.layers }));
+  const [shown, setShown] = useState<Record<string, boolean>>(() => Object.fromEntries(members.map((m) => [m.uid, initial.shown?.[m.uid] ?? true])));
+  const [dangerAction, setDangerAction] = useState<'delete' | 'leave' | null>(null);
   const { run, busy, error } = useAsyncAction();
   const { run: runDanger, busy: dangerBusy, error: dangerError } = useAsyncAction();
   const isOwner = dashboard.ownerUid === meUid;

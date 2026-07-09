@@ -4,13 +4,29 @@
 export const WEIGHT_DP = 2;
 
 // Format a weight in kg to fixed display precision.
-export const fmtKg = (kg) => (kg == null || Number.isNaN(Number(kg)) ? '—' : Number(kg).toFixed(WEIGHT_DP));
+export const fmtKg = (kg: number | null | undefined): string =>
+  kg == null || Number.isNaN(Number(kg)) ? '—' : Number(kg).toFixed(WEIGHT_DP);
+
+export type ChangeTone = 'neutral' | 'good' | 'bad';
+export interface ChangeFormat {
+  glyph: string;
+  tone: ChangeTone;
+  text: string;
+  aria: string;
+}
 
 // Format a change/delta value with a direction glyph, a semantic tone, and an
 // accessible word — never rely on color/sign alone.
 //   goalDirection: 'down' (weight loss, default) | 'up' (weight gain is the goal)
 //   atOrBelowGoal: true when a small gain while maintaining should read neutral, not bad
-export function formatChange(value, { unit = 'kg', goalDirection = 'down', atOrBelowGoal = false } = {}) {
+export function formatChange(
+  value: number | null | undefined,
+  { unit = 'kg', goalDirection = 'down', atOrBelowGoal = false }: {
+    unit?: string;
+    goalDirection?: 'down' | 'up';
+    atOrBelowGoal?: boolean;
+  } = {},
+): ChangeFormat {
   const v = Number(value);
   if (value == null || Number.isNaN(v) || Math.abs(v) < 0.005) {
     return { glyph: '—', tone: 'neutral', text: 'No change', aria: 'no change' };
@@ -19,7 +35,7 @@ export function formatChange(value, { unit = 'kg', goalDirection = 'down', atOrB
   const good = goalDirection === 'down' ? losing : !losing;
   const glyph = losing ? '↓' : '↑';
   const word = losing ? 'lost' : 'gained';
-  const tone = atOrBelowGoal && !losing ? 'neutral' : good ? 'good' : 'bad';
+  const tone: ChangeTone = atOrBelowGoal && !losing ? 'neutral' : good ? 'good' : 'bad';
   const text = `${Math.abs(v).toFixed(WEIGHT_DP)} ${unit}`;
   return { glyph, tone, text, aria: `${word} ${text}` };
 }

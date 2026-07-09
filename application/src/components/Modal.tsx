@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useId } from 'react';
+import { useEffect, useRef, useId, type ReactNode, type RefObject } from 'react';
 import Icon from './Icon.jsx';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -7,15 +7,15 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
 // (see ../../documents/app-feedback-action-plan.md S-A / DEV-27). Pass `skipInitialFocus` when the
 // caller manages its own initial focus (e.g. QuickLog auto-selects its weight
 // input) — Tab-trap/Escape/return-focus still apply either way.
-export function useDialogA11y(containerRef, onClose, { skipInitialFocus = false } = {}) {
+export function useDialogA11y(containerRef: RefObject<HTMLElement | null>, onClose: () => void, { skipInitialFocus = false }: { skipInitialFocus?: boolean } = {}) {
   useEffect(() => {
     const node = containerRef.current;
     if (!node) return undefined;
-    const previouslyFocused = document.activeElement;
-    const focusables = () => Array.from(node.querySelectorAll(FOCUSABLE));
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const focusables = (): HTMLElement[] => Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE));
     if (!skipInitialFocus) (focusables()[0] || node).focus();
 
-    const onKeyDown = (e) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { onClose(); return; }
       if (e.key !== 'Tab') return;
       const items = focusables();
@@ -33,8 +33,18 @@ export function useDialogA11y(containerRef, onClose, { skipInitialFocus = false 
   }, [containerRef, onClose]);
 }
 
-export default function Modal({ title, sub, onClose, children, footer, width = 460, busy = false }) {
-  const ref = useRef(null);
+interface ModalProps {
+  title?: ReactNode;
+  sub?: ReactNode;
+  onClose: () => void;
+  children?: ReactNode;
+  footer?: ReactNode;
+  width?: number;
+  busy?: boolean;
+}
+
+export default function Modal({ title, sub, onClose, children, footer, width = 460, busy = false }: ModalProps) {
+  const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
   // While a write triggered from inside this modal is in flight, the X/backdrop
   // must not be able to dismiss it — otherwise a stale-closure completion can
@@ -61,8 +71,19 @@ export default function Modal({ title, sub, onClose, children, footer, width = 4
   );
 }
 
-export function Confirm({ title, message, confirmLabel = 'Confirm', danger, busy = false, error, onCancel, onConfirm }) {
-  const ref = useRef(null);
+interface ConfirmProps {
+  title?: ReactNode;
+  message?: ReactNode;
+  confirmLabel?: string;
+  danger?: boolean;
+  busy?: boolean;
+  error?: ReactNode;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+export function Confirm({ title, message, confirmLabel = 'Confirm', danger, busy = false, error, onCancel, onConfirm }: ConfirmProps) {
+  const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
   useDialogA11y(ref, onCancel);
   return (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import Icon, { Logo, GoogleG } from '../components/Icon.jsx';
 import Splash from '../components/Splash.jsx';
@@ -15,7 +15,7 @@ const ERROR_MESSAGES = {
   'auth/not-configured': 'Firebase isn’t configured yet.',
   'not-configured': 'Firebase isn’t configured yet.',
 };
-const errorText = (code) => ERROR_MESSAGES[code] || 'Something went wrong. Please try again.';
+const errorText = (code: string) => ERROR_MESSAGES[code as keyof typeof ERROR_MESSAGES] || 'Something went wrong. Please try again.';
 
 export default function Login() {
   const { user, loading, configured, error, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
@@ -35,7 +35,7 @@ export default function Login() {
     setBusy(false);
   };
 
-  const onEmailSubmit = async (e) => {
+  const onEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!email || !password) return;
     setBusy(true);

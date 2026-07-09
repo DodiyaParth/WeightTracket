@@ -7,8 +7,16 @@ import { memberList } from '../lib/dashboards.js';
 import { paceCheck } from '../lib/health.js';
 import { currentWeight } from '../lib/stats.js';
 import { todayISO, addDays } from '../lib/date.js';
+import type { Dashboard, EnrichedMember, Goal, Profile, SeriesPoint } from '../types.js';
 
-function PersonGoal({ person, currentKg, g, onChange }) {
+interface PersonGoalProps {
+  person: EnrichedMember;
+  currentKg: number | null;
+  g: Goal;
+  onChange: (patch: Partial<Goal>) => void;
+}
+
+function PersonGoal({ person, currentKg, g, onChange }: PersonGoalProps) {
   const target = g.targetKg ?? '';
   const hasDate = !!g.targetISO;
   const pace = paceCheck({ current: currentKg ?? 0, target: Number(target || 0), targetISO: g.targetISO });
@@ -28,7 +36,7 @@ function PersonGoal({ person, currentKg, g, onChange }) {
         <div>
           <label className="field-label">Target date</label>
           {hasDate
-            ? <input className="input" type="date" min={todayISO()} value={g.targetISO} onChange={(e) => onChange({ targetISO: e.target.value })} />
+            ? <input className="input" type="date" min={todayISO()} value={g.targetISO!} onChange={(e) => onChange({ targetISO: e.target.value })} />
             : <button className="input date-field row between muted" onClick={() => onChange({ targetISO: addDays(todayISO(), 90) })}><span>No date set</span><Icon name="calendar" color="var(--muted)" /></button>}
         </div>
       </div>
@@ -42,14 +50,21 @@ function PersonGoal({ person, currentKg, g, onChange }) {
   );
 }
 
-export default function GoalEditor({ dashboard, series, profiles = {}, onClose }) {
+interface GoalEditorProps {
+  dashboard: Dashboard;
+  series?: Record<string, SeriesPoint[]>;
+  profiles?: Record<string, Profile>;
+  onClose: () => void;
+}
+
+export default function GoalEditor({ dashboard, series, profiles = {}, onClose }: GoalEditorProps) {
   const members = memberList(dashboard, profiles);
-  const [goals, setGoals] = useState(() => ({ ...dashboard.goals }));
-  const [team, setTeam] = useState(() => ({ label: dashboard.teamGoal?.label || '', target: dashboard.teamGoal?.target || '' }));
+  const [goals, setGoals] = useState<Record<string, Goal>>(() => ({ ...dashboard.goals }));
+  const [team, setTeam] = useState<{ label: string; target: number | string }>(() => ({ label: dashboard.teamGoal?.label || '', target: dashboard.teamGoal?.target || '' }));
   const [confirmClearTeam, setConfirmClearTeam] = useState(false);
   const { run, busy, error } = useAsyncAction();
 
-  const setGoal = (uid, patch) => setGoals((g) => ({ ...g, [uid]: { ...g[uid], ...patch } }));
+  const setGoal = (uid: string, patch: Partial<Goal>) => setGoals((g) => ({ ...g, [uid]: { ...g[uid], ...patch } }));
   const doSave = async () => {
     try {
       await run(() => repo.updateDashboard(dashboard.id, {

@@ -4,26 +4,37 @@
 import Papa from 'papaparse';
 import { parseDate, detectDateFormat } from './date.js';
 
-export function parseCsv(text) {
-  const res = Papa.parse(String(text).trim(), { skipEmptyLines: true });
+export interface ParsedCsv {
+  header: string[];
+  rows: string[][];
+  hasHeader: boolean;
+}
+
+export function parseCsv(text: unknown): ParsedCsv {
+  const res = Papa.parse<string[]>(String(text).trim(), { skipEmptyLines: true });
   const rows = res.data.filter((r) => r.some((c) => String(c).trim() !== ''));
   if (!rows.length) return { header: [], rows: [], hasHeader: false };
   // Treat the first row as a header if none of its cells look like a number.
   const first = rows[0];
-  const looksNumeric = (c) => c !== '' && !Number.isNaN(Number(c));
+  const looksNumeric = (c: string) => c !== '' && !Number.isNaN(Number(c));
   const hasHeader = !first.some(looksNumeric);
   return { header: hasHeader ? first.map((c) => String(c).trim()) : first.map((_, i) => `Column ${i + 1}`),
     rows: hasHeader ? rows.slice(1) : rows, hasHeader };
 }
 
-const looksLikeWeight = (c) => {
+const looksLikeWeight = (c: unknown): boolean => {
   const n = parseWeightValue(c);
   return !Number.isNaN(n) && n >= 20 && n <= 400;
 };
-const looksLikeDate = (c) => /\d/.test(String(c)) && (/[\/\-.]/.test(String(c)) || /[A-Za-z]/.test(String(c)));
+const looksLikeDate = (c: unknown): boolean => /\d/.test(String(c)) && (/[\/\-.]/.test(String(c)) || /[A-Za-z]/.test(String(c)));
+
+export interface DetectedColumns {
+  dateIdx: number;
+  weightIdx: number;
+}
 
 // Pick date & weight columns by header keywords, falling back to content sniffing.
-export function detectColumns(header, rows) {
+export function detectColumns(header: string[], rows: string[][]): DetectedColumns {
   const lower = header.map((h) => String(h).toLowerCase());
   let dateIdx = lower.findIndex((h) => /date|day|time|when/.test(h));
   let weightIdx = lower.findIndex((h) => /weight|kg|mass|wt/.test(h));
@@ -42,7 +53,7 @@ export function detectColumns(header, rows) {
   return { dateIdx, weightIdx };
 }
 
-export function suggestDateFormat(rows, dateIdx) {
+export function suggestDateFormat(rows: string[][], dateIdx: number): string {
   return detectDateFormat(rows.map((r) => r[dateIdx]));
 }
 
@@ -51,7 +62,7 @@ export function suggestDateFormat(rows, dateIdx) {
 // `,` appear, whichever comes LAST in the string is the decimal separator.
 // Genuinely ambiguous input (more than one of each) is rejected as NaN rather
 // than guessed.
-export function parseWeightValue(raw) {
+export function parseWeightValue(raw: unknown): number {
   let s = String(raw).trim().replace(/[^0-9.,\-]/g, '');
   if (!/\d/.test(s)) return NaN;
   const dots = (s.match(/\./g) || []).length;
@@ -70,12 +81,31 @@ export function parseWeightValue(raw) {
   return Number(s);
 }
 
+export interface ImportEntry {
+  date: string;
+  kg: number;
+  note: string;
+}
+export interface ImportBadRow {
+  index: number;
+  raw: string;
+  kg: string;
+  reason: string;
+}
+export interface ImportResult {
+  entries: ImportEntry[];
+  bad: ImportBadRow[];
+  duplicates: number;
+  total: number;
+  ready: number;
+}
+
 // Build the import preview: good entries + flagged bad rows. A date repeated
 // within the file is a correction, not an error — the LAST value for that
 // date wins and is merged silently (surfaced via `duplicates`, not `bad`).
-export function buildImport(rows, { dateIdx, weightIdx, fmt }) {
-  const bad = [];
-  const byDate = new Map();
+export function buildImport(rows: string[][], { dateIdx, weightIdx, fmt }: { dateIdx: number; weightIdx: number; fmt: string }): ImportResult {
+  const bad: ImportBadRow[] = [];
+  const byDate = new Map<string, ImportEntry>();
   let duplicates = 0;
   rows.forEach((r, i) => {
     const rawDate = r[dateIdx];

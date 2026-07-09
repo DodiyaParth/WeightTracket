@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import Icon from '../components/Icon.jsx';
@@ -10,18 +10,28 @@ import { useWeights } from '../hooks/useData.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { repo } from '../data/repo.js';
 import { todayISO, addDays, fmtLong, fmtDate, DATE_FORMATS, parseDate } from '../lib/date.js';
-import { parseCsv, detectColumns, suggestDateFormat, buildImport, parseWeightValue, TEMPLATE_CSV } from '../lib/csv.js';
+import { parseCsv, detectColumns, suggestDateFormat, buildImport, parseWeightValue, TEMPLATE_CSV, type DetectedColumns } from '../lib/csv.js';
 import { fmtKg } from '../lib/format.js';
 import { classifyEntries } from '../lib/collisions.js';
+import type { WeightEntry } from '../types.js';
+
+type IncomingEntry = { date: string; kg: number; note?: string };
+type ImportOutcome = { saved: number; skipped: number };
+interface Batch {
+  savedFresh: number;
+  unchanged: Array<IncomingEntry & { prevKg: number }>;
+  conflicting: Array<IncomingEntry & { prevKg: number }>;
+  onDone: (r: ImportOutcome) => void;
+}
 
 // Shared by Bulk + CSV: saves the non-colliding rows immediately, then — if any
 // dates collide with existing history — surfaces ONE clubbed dialog to decide
 // what happens to the rest (DEV-11, user spec point 2).
-function useBatchImport(uid, existing) {
-  const [batch, setBatch] = useState(null); // { savedFresh, unchanged, conflicting, onDone }
+function useBatchImport(uid: string, existing: WeightEntry[]) {
+  const [batch, setBatch] = useState<Batch | null>(null);
   const { run, busy, error } = useAsyncAction();
 
-  const start = async (incoming, onDone) => {
+  const start = async (incoming: IncomingEntry[], onDone: (r: ImportOutcome) => void) => {
     const { fresh, unchanged, conflicting } = classifyEntries(incoming, existing);
     let savedFresh = 0;
     try {
@@ -48,10 +58,18 @@ function useBatchImport(uid, existing) {
   return { batch, start, overwrite, skip, busy, error };
 }
 
-function BatchCollisionDialog({ batch, busy, error, onOverwrite, onSkip }) {
+interface BatchCollisionDialogProps {
+  batch: Batch | null;
+  busy: boolean;
+  error: string | null;
+  onOverwrite: () => void;
+  onSkip: () => void;
+}
+
+function BatchCollisionDialog({ batch, busy, error, onOverwrite, onSkip }: BatchCollisionDialogProps) {
   if (!batch) return null;
   const { savedFresh, unchanged, conflicting } = batch;
-  const parts = [];
+  const parts: string[] = [];
   if (savedFresh) parts.push(`${savedFresh} new ${savedFresh === 1 ? 'entry' : 'entries'} saved`);
   if (unchanged.length) parts.push(`${unchanged.length} already logged with the same weight (skipped)`);
   if (conflicting.length) parts.push(`${conflicting.length} ${conflicting.length === 1 ? 'has' : 'have'} a different weight on file`);
@@ -82,15 +100,21 @@ function BatchCollisionDialog({ batch, busy, error, onOverwrite, onSkip }) {
   );
 }
 
-function Single({ uid, existing, onToast }) {
+interface TabProps {
+  uid: string;
+  existing: WeightEntry[];
+  onToast: (m: string) => void;
+}
+
+function Single({ uid, existing, onToast }: TabProps) {
   const [kg, setKg] = useState('');
   const [date, setDate] = useState(todayISO());
   const [note, setNote] = useState('');
-  const [info, setInfo] = useState(null);
-  const [conflict, setConflict] = useState(null);
+  const [info, setInfo] = useState<{ kg: number; again: boolean } | null>(null);
+  const [conflict, setConflict] = useState<{ kg: number; prevKg: number; again: boolean } | null>(null);
   const { run, busy, error } = useAsyncAction();
 
-  const doSave = async (v, again) => {
+  const doSave = async (v: number, again: boolean) => {
     try {
       await run(() => repo.addWeight(uid, { date, kg: v, note }));
     } catch { return; }
@@ -99,7 +123,7 @@ function Single({ uid, existing, onToast }) {
     if (!again) setDate(todayISO());
   };
 
-  const save = async (again) => {
+  const save = async (again: boolean) => {
     const v = parseWeightValue(kg);
     if (!v || Number.isNaN(v)) return;
     const { unchanged, conflicting } = classifyEntries([{ date, kg: v }], existing);
@@ -154,11 +178,13 @@ function Single({ uid, existing, onToast }) {
   );
 }
 
-function Bulk({ uid, existing, onToast }) {
-  const [rows, setRows] = useState(() => Array.from({ length: 7 }, (_, i) => ({ id: `r${i}`, date: addDays(todayISO(), -i), kg: '', note: '' })));
+interface Row { id: string; date: string; kg: string; note: string; }
+
+function Bulk({ uid, existing, onToast }: TabProps) {
+  const [rows, setRows] = useState<Row[]>(() => Array.from({ length: 7 }, (_, i) => ({ id: `r${i}`, date: addDays(todayISO(), -i), kg: '', note: '' })));
   const { batch, start, overwrite, skip, busy, error } = useBatchImport(uid, existing);
-  const setRow = (id, patch) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  const weightOf = (r) => parseWeightValue(r.kg);
+  const setRow = (id: string, patch: Partial<Row>) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const weightOf = (r: Row) => parseWeightValue(r.kg);
   const filled = rows.filter((r) => r.kg && !Number.isNaN(weightOf(r)));
   const invalidCount = rows.filter((r) => r.kg && Number.isNaN(weightOf(r))).length;
 
@@ -170,7 +196,7 @@ function Bulk({ uid, existing, onToast }) {
   useEffect(() => {
     if (prefilled.current || !existing.length) return;
     prefilled.current = true;
-    const byDate = new Map(existing.map((e) => [e.date, e]));
+    const byDate = new Map(existing.map((e): [string, WeightEntry] => [e.date, e]));
     setRows((rs) => rs.map((r) => {
       if (r.kg) return r;
       const e = byDate.get(r.date);
@@ -199,7 +225,7 @@ function Bulk({ uid, existing, onToast }) {
                 <td style={{ width: 150 }}>
                   <input className="input" inputMode="decimal" placeholder="—" value={r.kg} disabled={busy}
                     style={invalid ? { borderColor: 'var(--rose)' } : undefined}
-                    aria-invalid={invalid} onChange={(e) => setRow(r.id, { kg: e.target.value })} />
+                    aria-invalid={invalid as boolean} onChange={(e) => setRow(r.id, { kg: e.target.value })} />
                   {invalid && <span className="small" style={{ color: 'var(--rose)' }}>Not a number</span>}
                 </td>
                 <td><input className="input" placeholder="—" value={r.note} disabled={busy} onChange={(e) => setRow(r.id, { note: e.target.value })} /></td>
@@ -223,11 +249,11 @@ function Bulk({ uid, existing, onToast }) {
   );
 }
 
-function Csv({ uid, existing, onToast }) {
-  const [raw, setRaw] = useState(null);
+function Csv({ uid, existing, onToast }: TabProps) {
+  const [raw, setRaw] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
-  const [fmtOverride, setFmtOverride] = useState(null);
-  const [colOverride, setColOverride] = useState(null);
+  const [fmtOverride, setFmtOverride] = useState<string | null>(null);
+  const [colOverride, setColOverride] = useState<DetectedColumns | null>(null);
   const { batch, start, overwrite, skip, busy, error } = useBatchImport(uid, existing);
 
   const parsed = useMemo(() => (raw ? parseCsv(raw) : null), [raw]);
@@ -238,7 +264,7 @@ function Csv({ uid, existing, onToast }) {
   const fmt = fmtOverride || detectedFmt;
   const result = useMemo(() => (parsed && cols && !sameCol ? buildImport(parsed.rows, { ...cols, fmt }) : null), [parsed, cols, fmt, sameCol]);
 
-  const onFile = async (e) => {
+  const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
     setFileName(f.name);
@@ -282,9 +308,9 @@ function Csv({ uid, existing, onToast }) {
   }
 
   const preview = sameCol ? [] : (parsed?.rows || []).slice(0, 6).map((r) => {
-    const rawDate = r[cols.dateIdx];
+    const rawDate = r[cols!.dateIdx];
     const date = parseDate(rawDate, fmt);
-    const kgNum = parseWeightValue(r[cols.weightIdx]);
+    const kgNum = parseWeightValue(r[cols!.weightIdx]);
     const okKg = !Number.isNaN(kgNum) && kgNum >= 20 && kgNum <= 400;
     const reason = !date ? 'can’t parse date' : !okKg ? 'invalid weight' : null;
     return { rawDate, date, kg: okKg ? +kgNum.toFixed(2) : null, ok: !!date && okKg, reason };
@@ -293,18 +319,18 @@ function Csv({ uid, existing, onToast }) {
   return (
     <div className="card">
       <div className="section-head"><span className="card-title">Review import</span><button className="btn ghost sm" onClick={() => { setRaw(null); setFileName(''); }}><Icon name="close" size={16} color="var(--text-2)" />Replace file</button></div>
-      <div className="csv-file" style={{ marginTop: 12 }}><Icon name="upload" color="var(--accent-dark)" /><div className="grow"><div className="name">{fileName}</div><div className="muted small">{parsed.rows.length} rows detected</div></div><span className="pill">Auto-detected</span></div>
+      <div className="csv-file" style={{ marginTop: 12 }}><Icon name="upload" color="var(--accent-dark)" /><div className="grow"><div className="name">{fileName}</div><div className="muted small">{parsed!.rows.length} rows detected</div></div><span className="pill">Auto-detected</span></div>
       <div className="grid-2" style={{ marginTop: 16 }}>
         <div>
           <label className="field-label">Date column</label>
-          <select className="input" value={cols.dateIdx} onChange={(e) => setColOverride({ dateIdx: +e.target.value, weightIdx: cols.weightIdx })}>
-            {parsed.header.map((h, i) => <option key={i} value={i}>{h}</option>)}
+          <select className="input" value={cols!.dateIdx} onChange={(e) => setColOverride({ dateIdx: +e.target.value, weightIdx: cols!.weightIdx })}>
+            {parsed!.header.map((h, i) => <option key={i} value={i}>{h}</option>)}
           </select>
         </div>
         <div>
           <label className="field-label">Weight column</label>
-          <select className="input" value={cols.weightIdx} onChange={(e) => setColOverride({ dateIdx: cols.dateIdx, weightIdx: +e.target.value })}>
-            {parsed.header.map((h, i) => <option key={i} value={i}>{h}</option>)}
+          <select className="input" value={cols!.weightIdx} onChange={(e) => setColOverride({ dateIdx: cols!.dateIdx, weightIdx: +e.target.value })}>
+            {parsed!.header.map((h, i) => <option key={i} value={i}>{h}</option>)}
           </select>
         </div>
       </div>
@@ -325,10 +351,10 @@ function Csv({ uid, existing, onToast }) {
               </tr>
             ))}</tbody>
           </table>
-          {result.duplicates > 0 && <div className="row-warn" style={{ marginTop: 12 }}><Icon name="warn" size={16} color="#b9742a" />{result.duplicates} repeated date{result.duplicates > 1 ? 's were' : ' was'} merged — the last value in the file wins.</div>}
-          {result.bad.length > 0 && <div className="row-warn" style={{ marginTop: 12 }}><Icon name="warn" size={16} color="#b9742a" />{result.bad.length} row{result.bad.length > 1 ? 's' : ''} couldn’t be imported. Fix the file or change the date format above.</div>}
+          {result!.duplicates > 0 && <div className="row-warn" style={{ marginTop: 12 }}><Icon name="warn" size={16} color="#b9742a" />{result!.duplicates} repeated date{result!.duplicates > 1 ? 's were' : ' was'} merged — the last value in the file wins.</div>}
+          {result!.bad.length > 0 && <div className="row-warn" style={{ marginTop: 12 }}><Icon name="warn" size={16} color="#b9742a" />{result!.bad.length} row{result!.bad.length > 1 ? 's' : ''} couldn’t be imported. Fix the file or change the date format above.</div>}
           {error && <p className="small" style={{ color: 'var(--rose)', marginTop: 12 }}>{error}</p>}
-          <div className="row" style={{ marginTop: 16, alignItems: 'center' }}><span className="muted small">{result.total} rows · {result.ready} ready · {result.bad.length} need attention</span><div style={{ flex: 1 }} /><button className="btn primary" onClick={doImport} disabled={!result.ready || busy}>{busy ? 'Importing…' : `Import ${result.ready} entries`}</button></div>
+          <div className="row" style={{ marginTop: 16, alignItems: 'center' }}><span className="muted small">{result!.total} rows · {result!.ready} ready · {result!.bad.length} need attention</span><div style={{ flex: 1 }} /><button className="btn primary" onClick={doImport} disabled={!result!.ready || busy}>{busy ? 'Importing…' : `Import ${result!.ready} entries`}</button></div>
         </>
       )}
       <BatchCollisionDialog batch={batch} busy={busy} error={error} onOverwrite={overwrite} onSkip={skip} />
@@ -336,19 +362,19 @@ function Csv({ uid, existing, onToast }) {
   );
 }
 
-const labelFor = (k) => (DATE_FORMATS.find(([key]) => key === k) || [, k])[1];
+const labelFor = (k: string) => (DATE_FORMATS.find(([key]) => key === k) || [, k])[1];
 
 export default function AddWeight() {
   const { user } = useAuth();
   const { data: entries } = useWeights(user?.uid);
   const [tab, setTab] = useState('single');
-  const [del, setDel] = useState(null);
-  const [toast, setToast] = useState(null);
+  const [del, setDel] = useState<WeightEntry | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const quick = useQuickLog();
   const { run: runDelete, busy: deleting, error: deleteError } = useAsyncAction();
-  const onToast = (m) => { setToast(m); setTimeout(() => setToast(null), 2400); };
+  const onToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2400); };
   const confirmDelete = async () => {
-    try { await runDelete(() => repo.deleteWeight(user.uid, del.id)); } catch { return; }
+    try { await runDelete(() => repo.deleteWeight(user!.uid, del!.id)); } catch { return; }
     setDel(null);
     onToast('Entry deleted');
   };
@@ -362,9 +388,9 @@ export default function AddWeight() {
       </div>
       <div className="addweight-grid">
         <div>
-          {tab === 'single' && <Single uid={user?.uid} existing={entries || []} onToast={onToast} />}
-          {tab === 'bulk' && <Bulk uid={user?.uid} existing={entries || []} onToast={onToast} />}
-          {tab === 'csv' && <Csv uid={user?.uid} existing={entries || []} onToast={onToast} />}
+          {tab === 'single' && <Single uid={user!.uid} existing={entries || []} onToast={onToast} />}
+          {tab === 'bulk' && <Bulk uid={user!.uid} existing={entries || []} onToast={onToast} />}
+          {tab === 'csv' && <Csv uid={user!.uid} existing={entries || []} onToast={onToast} />}
         </div>
         <div className="card" style={{ alignSelf: 'start' }}>
           <div className="row between" style={{ marginBottom: 8 }}>
