@@ -1,0 +1,307 @@
+import React, { useState } from 'react';
+import Icon, { Avatar } from './Icon.jsx';
+import WeightChart from './Chart.jsx';
+import MotivationCard from './MotivationCard.jsx';
+import HabitsSection from './HabitsSection.jsx';
+import { useQuickLog } from './QuickLog.jsx';
+import { Confirm } from './Modal.jsx';
+import { ChangeText } from './ui.jsx';
+import { repo } from '../data/repo.js';
+import { useAsyncAction } from '../hooks/useAsyncAction.js';
+import { memberList } from '../lib/dashboards.js';
+import { summarize, currentWeight, spanDays, togetherChange } from '../lib/stats.js';
+import { computeState, STATUS, milestones, milestoneProgress } from '../lib/motivation.js';
+import { bmiValue, bmiCategory, healthyRange, isSafePace, goalProgress, verdictVsIdeal } from '../lib/health.js';
+import { fmtDate, fmtLong, todayISO } from '../lib/date.js';
+import { fmtKg, formatChange } from '../lib/format.js';
+
+function goalFor(dashboard, series, uid) {
+  const g = dashboard.goals?.[uid] || {};
+  const entries = series[uid] || [];
+  const startKg = g.startKg ?? entries[0]?.kg ?? null;
+  return { startKg, targetKg: g.targetKg ?? null, targetISO: g.targetISO ?? null };
+}
+
+function Tile({ label, value, unit, sub, subTone, pill }) {
+  return (
+    <div className="card stat-tile">
+      <span className="label">{label}</span>
+      <span><span className="value">{value}</span>{unit && <span className="unit"> {unit}</span>}</span>
+      {pill || (sub && <span className={'small ' + (subTone || 't2')}>{sub}</span>)}
+    </div>
+  );
+}
+
+function StatTiles({ s, days, proj, verdict, verdictTone, away }) {
+  const lockProj = days < 14;
+  const totalC = formatChange(s.total);
+  const weeklyC = formatChange(s.weekly, { unit: 'kg/wk' });
+  return (
+    <div className="grid-4">
+      <Tile label="Current weight" value={s.current != null ? fmtKg(s.current) : '—'} unit="kg" sub={s.trend != null ? `trend ${fmtKg(s.trend)}` : ''} />
+      <Tile label="Total change" value={<ChangeText change={totalC} />} sub="since start" />
+      <Tile label="Weekly rate" value={<ChangeText change={weeklyC} />}
+        pill={<span className={'pill ' + (isSafePace(s.weekly) ? '' : 'amber')} style={{ marginTop: 4, alignSelf: 'flex-start' }}>{isSafePace(s.weekly) ? 'within safe range' : 'faster than safe pace'}</span>} />
+      {lockProj
+        ? <Tile label="Projected goal" value="—" pill={<span className="pill gray" style={{ marginTop: 4, alignSelf: 'flex-start' }}>need more data</span>} />
+        : away || proj.status !== 'ok'
+          ? <Tile label="Projected goal" value="No estimate" pill={<span className="pill amber" style={{ marginTop: 4, alignSelf: 'flex-start' }}>trend moving away</span>} />
+          : <div className="card stat-tile"><span className="label">Projected goal</span><span style={{ fontSize: 18, fontWeight: 600 }}>{proj.rangeLabel}</span>{verdict && <span className={'small ' + verdictTone}>{verdict} vs ideal</span>}</div>}
+    </div>
+  );
+}
+
+function Progress({ s, days, proj, verdict, verdictTone, away }) {
+  return (
+    <div className="card">
+      <div className="card-title" style={{ marginBottom: 14 }}>Progress &amp; prediction</div>
+      <div className="grid-4">
+        {s.deltas.map((d) => (
+          <div key={d.window} className="col" style={{ gap: 4 }}>
+            <span className="muted small">{d.window}d</span>
+            {d.value != null
+              ? <ChangeText change={formatChange(d.value)} style={{ fontSize: 20, fontWeight: 600 }} />
+              : <><Icon name="lock" size={16} color="var(--muted)" /><span className="muted small">need {d.window}d</span></>}
+          </div>
+        ))}
+      </div>
+      <div className="divider" style={{ margin: '16px 0' }} />
+      <div className="row between">
+        <span className="t2 small">Projected goal date</span>
+        {days < 14
+          ? <span className="pill gray">need more data</span>
+          : away || proj.status !== 'ok'
+            ? <span className="pill amber">trend moving away — no estimate</span>
+            : <span><b>{proj.rangeLabel}</b>{verdict ? <> · <span className={'pill' + (verdictTone === 'change-bad' ? ' amber' : '')}>{verdict} vs ideal</span></> : null}</span>}
+      </div>
+    </div>
+  );
+}
+
+function GoalRow({ person, g, currentKg }) {
+  if (g.targetKg == null) {
+    return (
+      <div className="row between">
+        <span className="row" style={{ gap: 9 }}><Avatar size={26} color={person.color}>{person.initial}</Avatar><span style={{ fontWeight: 600 }}>{person.name}</span></span>
+        <span className="muted small">No goal set</span>
+      </div>
+    );
+  }
+  const pct = goalProgress({ start: g.startKg ?? currentKg, current: currentKg, target: g.targetKg });
+  return (
+    <div className="col" style={{ gap: 9 }}>
+      <div className="row between">
+        <div className="row" style={{ gap: 9 }}>
+          <Avatar size={26} color={person.color}>{person.initial}</Avatar>
+          <span style={{ fontWeight: 600 }}>{person.name}</span>
+          <span className="pill gray">{g.targetISO ? `by ${fmtDate(g.targetISO)}` : 'no date · safe-pace ETA'}</span>
+        </div>
+        <span className="t2 small">{currentKg ?? '—'} → <b style={{ color: 'var(--text)' }}>{g.targetKg} kg</b></span>
+      </div>
+      <div className="progress"><span style={{ width: `${pct * 100}%`, background: person.color }} /></div>
+    </div>
+  );
+}
+
+function BmiRow({ person, currentKg }) {
+  const bmi = bmiValue(currentKg, person.heightM);
+  if (bmi == null) {
+    return (
+      <div className="row between">
+        <span className="row" style={{ gap: 8 }}><Avatar size={22} color={person.color}>{person.initial}</Avatar>{person.name}</span>
+        <span className="muted small">Add height in Profile to see BMI</span>
+      </div>
+    );
+  }
+  const cat = bmiCategory(bmi);
+  const [lo, hi] = healthyRange(person.heightM);
+  const pos = Math.max(0, Math.min(100, ((bmi - 17) / (32 - 17)) * 100));
+  return (
+    <div className="col" style={{ gap: 8 }}>
+      <div className="row between">
+        <span className="row" style={{ gap: 8 }}><Avatar size={22} color={person.color}>{person.initial}</Avatar>{person.name}</span>
+        <span><b>{bmi}</b> <span className="muted small">{cat}</span></span>
+      </div>
+      <div style={{ position: 'relative', height: 8, borderRadius: 4, background: 'linear-gradient(90deg,#7fb2e8 0 22%,#2aa897 22% 52%,#e69a3b 52% 78%,#e5786f 78% 100%)' }} />
+      <div style={{ position: 'relative', height: 0 }}>
+        <span style={{ position: 'absolute', left: `${pos}%`, top: -14, transform: 'translateX(-50%)', width: 2, height: 14, background: 'var(--text)' }} />
+      </div>
+      <span className="muted small">Healthy band {lo}–{hi} kg</span>
+    </div>
+  );
+}
+
+function Wins({ dashboard, focusId, notes, canAdd }) {
+  const [adding, setAdding] = useState(false);
+  const [text, setText] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const { run, busy, error } = useAsyncAction();
+  const { run: runDelete, busy: deleteBusy, error: deleteError } = useAsyncAction();
+  const save = async () => {
+    if (!text.trim()) return;
+    try {
+      await run(() => repo.addNsv(dashboard.id, focusId, { date: todayISO(), text: text.trim() }));
+    } catch { return; }
+    setText(''); setAdding(false);
+  };
+  const confirmDelete = async () => {
+    try {
+      await runDelete(() => repo.deleteNsv(dashboard.id, deleteTarget.id));
+    } catch { return; }
+    setDeleteTarget(null);
+  };
+  return (
+    <div className="card">
+      <div className="section-head" style={{ marginBottom: 12 }}>
+        <span className="card-title">Wins this month</span>
+        {canAdd && <button className="btn ghost sm" onClick={() => setAdding(true)}><Icon name="plus" color="var(--text-2)" />Add</button>}
+      </div>
+      {adding && canAdd && (
+        <div className="col" style={{ gap: 6, marginBottom: 12 }}>
+          <div className="nsv-compose">
+            <span className="pill gray">{fmtDate(todayISO())}</span>
+            <input className="input" placeholder="e.g. rings feel looser…" value={text} disabled={busy} autoFocus onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !busy && save()} />
+            <button className="btn primary sm" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+          </div>
+          {error && <span className="small" style={{ color: 'var(--rose)' }}>{error}</span>}
+        </div>
+      )}
+      {(!notes || notes.length === 0) && !adding
+        ? <p className="muted small" style={{ margin: 0 }}>No wins logged yet — small non-scale wins keep you going.</p>
+        : <div className="col" style={{ gap: 12 }}>
+          {(notes || []).map((n) => (
+            <div key={n.id} className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
+              <span className="muted small" style={{ width: 48, flex: 'none' }}>{fmtDate(n.date)}</span>
+              <span className="small" style={{ flex: 1 }}>{n.text}</span>
+              {canAdd && (
+                <button className="icon-btn ghost-ib" title="Delete" aria-label="Delete this win" onClick={() => setDeleteTarget(n)}>
+                  <Icon name="trash" size={14} color="var(--muted)" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>}
+
+      {deleteTarget && (
+        <Confirm
+          title="Delete this win?" message={`“${deleteTarget.text}” will be removed.`}
+          confirmLabel="Delete" danger busy={deleteBusy} error={deleteError}
+          onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete}
+        />
+      )}
+    </div>
+  );
+}
+
+function TeamGoal({ dashboard, series }) {
+  const tg = dashboard.teamGoal;
+  if (!tg) return null;
+  const lost = togetherChange(series, dashboard.trackedUids || []);
+  const pct = tg.target ? Math.min(1, Math.max(0, lost / tg.target)) : 0;
+  return (
+    <div className="col" style={{ gap: 9 }}>
+      <div className="row between">
+        <span className="row" style={{ gap: 8, fontWeight: 600 }}><Icon name="target" color="var(--accent-dark)" />Team goal · {tg.label}</span>
+        <span className="t2 small">{lost} / {tg.target} kg</span>
+      </div>
+      <div className="progress"><span style={{ width: `${pct * 100}%` }} /></div>
+    </div>
+  );
+}
+
+export default function DashboardBody({ dashboard, series = {}, habitLogs = {}, nsv = {}, meUid, readOnly = false, onEditGoals = () => {}, profiles = {} }) {
+  const quick = useQuickLog();
+  const members = memberList(dashboard, profiles);
+  const trackedMembers = members.filter((m) => (dashboard.trackedUids || []).includes(m.uid));
+  const defaultFocus = trackedMembers.find((m) => m.uid === meUid)?.uid || trackedMembers[0]?.uid;
+  const [focus, setFocus] = useState(defaultFocus);
+  const focusId = trackedMembers.find((m) => m.uid === focus) ? focus : defaultFocus;
+  const focusPerson = trackedMembers.find((m) => m.uid === focusId) || members[0];
+
+  const hasAnyData = trackedMembers.some((m) => (series[m.uid] || []).length > 0);
+
+  if (!hasAnyData) {
+    return (
+      <>
+        <div className="empty">
+          <span className="empty-ic"><Icon name="scale" size={28} color="var(--accent-dark)" /></span>
+          <h2>No weigh-ins yet</h2>
+          <p className="t2">Add your first weigh-in to start the trend — it fills in from there.</p>
+          {!readOnly && <button className="btn primary" onClick={() => quick.open()}><Icon name="plus" color="#fff" />Log my weight</button>}
+        </div>
+        <HabitsSection dashboard={dashboard} members={trackedMembers} logs={habitLogs} meUid={meUid} readOnly={readOnly} />
+      </>
+    );
+  }
+
+  const focusEntries = series[focusId] || [];
+  const g = goalFor(dashboard, series, focusId);
+  const s = summarize(focusEntries, g);
+  const days = spanDays(focusEntries);
+  const state = computeState({ entries: focusEntries, goal: g });
+  const away = STATUS[state].away;
+  const dated = g.targetISO && g.targetKg != null;
+  // Keep the raw verdict key (not just its label) so the tile/pill tone can
+  // reflect what it actually means — "behind" must never render with the
+  // same "good" styling as "ahead" (DEV-32).
+  const verdictKey = dated && days >= 14
+    ? verdictVsIdeal({ startKg: g.startKg, startISO: focusEntries[0]?.date, targetKg: g.targetKg, targetISO: g.targetISO, currentKg: s.trend ?? s.current })
+    : null;
+  const verdict = verdictKey ? STATUS[verdictKey].label : null;
+  const verdictTone = verdictKey === 'ahead' ? 'change-good' : verdictKey === 'behind' ? 'change-bad' : 'change-neutral';
+  const ms = milestones(g.startKg ?? focusEntries[0]?.kg);
+  const progress = milestoneProgress(g.startKg ?? focusEntries[0]?.kg, s.trend ?? s.current);
+
+  const chartPeople = trackedMembers.map((m) => ({ uid: m.uid, name: m.name, color: m.color }));
+
+  return (
+    <>
+      <div className="row between" style={{ alignItems: 'center' }}>
+        <span className="muted small">Showing {focusPerson?.name}’s stats, goal &amp; motivation</span>
+        {trackedMembers.length > 1 && (
+          <div className="seg">
+            {trackedMembers.map((p) => (
+              <button key={p.uid} className={focusId === p.uid ? 'on' : ''} onClick={() => setFocus(p.uid)}>
+                <span style={{ width: 8, height: 8, borderRadius: 4, background: p.color, display: 'inline-block', marginRight: 6 }} />{p.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <StatTiles s={s} days={days} proj={s.projection} verdict={verdict} verdictTone={verdictTone} away={away} />
+
+      <div className="content-2col">
+        <div className="col" style={{ gap: 24 }}>
+          <div className="card">
+            <WeightChart people={chartPeople} series={series} focusId={focusId} goal={g} away={away} status={STATUS[state].label} enoughData={days >= 14} settings={dashboard.settings} />
+          </div>
+          <Progress s={s} days={days} proj={s.projection} verdict={verdict} verdictTone={verdictTone} away={away} />
+          <div className="card">
+            <div className="section-head" style={{ marginBottom: 16 }}>
+              <span className="card-title">Goals</span>
+              {!readOnly && <button className="btn ghost sm" onClick={onEditGoals}><Icon name="edit" color="var(--text-2)" />Edit</button>}
+            </div>
+            <div className="col" style={{ gap: 18 }}>
+              {trackedMembers.map((p) => <GoalRow key={p.uid} person={p} g={goalFor(dashboard, series, p.uid)} currentKg={currentWeight(series[p.uid] || [])} />)}
+              {dashboard.teamGoal && <div className="divider" />}
+              <TeamGoal dashboard={dashboard} series={series} />
+            </div>
+          </div>
+        </div>
+
+        <div className="col" style={{ gap: 24 }}>
+          <MotivationCard person={focusPerson} state={state} milestone5={ms.m5} milestone10={ms.m10} progress={progress} />
+          <div className="card">
+            <div className="card-title" style={{ marginBottom: 14 }}>BMI &amp; healthy range</div>
+            <div className="col" style={{ gap: 18 }}>{trackedMembers.map((p) => <BmiRow key={p.uid} person={p} currentKg={currentWeight(series[p.uid] || [])} />)}</div>
+          </div>
+          <Wins dashboard={dashboard} focusId={focusId} notes={nsv[focusId]} canAdd={!readOnly && focusId === meUid} />
+          <p className="disclaimer" style={{ textAlign: 'left' }}>Not medical advice. Healthy loss is 0.5–1.0 kg/week.</p>
+        </div>
+      </div>
+
+      <HabitsSection dashboard={dashboard} members={trackedMembers} logs={habitLogs} meUid={meUid} readOnly={readOnly} />
+    </>
+  );
+}

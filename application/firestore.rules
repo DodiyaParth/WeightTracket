@@ -1,0 +1,207 @@
+rules_version = '2';
+
+// WeightTracker security rules (REQUIREMENTS §3, §7).
+//
+// Core guarantees:
+//  - Weight is OWNER-WRITE ONLY. Nobody can write another person's weight.
+//  - Dashboard members can READ each other's denormalized series (date+kg only).
+//  - Dashboard-level data (goals, habits, team goal, sharing) is editable by
+//    dashboard editors; viewers are read-only. Only the OWNER can change who
+//    is on the dashboard or what role they hold.
+//  - Joining a dashboard requires a real, matching, pending invite — not just
+//    "isn't already a member" (DEV-1).
+//  - The no-login link reads a world-readable publicViews/{token} snapshot,
+//    but only the dashboard's owner/editor can write one (DEV-6).
+//
+// NOTE: deploy with `firebase deploy --only firestore:rules` (or paste into the
+// console). These encode the intended model; verify against your flows after
+// first sign-in.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isUser(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // ---- Personal account data ----
+    // Profile fields (name/photo/height) are readable by any signed-in user —
+    // dashboard co-members need to read each other's profile to derive display
+    // name, avatar and BMI live (see lib/dashboards.js memberList; the whole
+    // point of the derive-don't-store model is that this data is NEVER copied
+    // into the dashboard, so it must be joined at read time instead). Writing
+    // your own profile stays strictly self-only.
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow write: if isUser(uid);
+
+      // Canonical weight history — owner read/write only. Co-members never read
+      // this directly; they read the denormalized dashboard series instead.
+      // Shape-checked (DEV-18): a weight must be a real, sane number.
+      match /weights/{weightId} {
+        allow read: if isUser(uid);
+        allow create, update: if isUser(uid)
+          && request.resource.data.kg is number
+          && request.resource.data.kg > 0
+          && request.resource.data.kg < 1000;
+        allow delete: if isUser(uid);
+      }
+    }
+
+    // ---- Dashboards (collaboration objects) ----
+    match /dashboards/{dashId} {
+      function dash() { return resource.data; }
+      function isMember() { return signedIn() && request.auth.uid in dash().memberUids; }
+      function isOwner() { return signedIn() && dash().ownerUid == request.auth.uid; }
+      function hasEditorRole() {
+        return signedIn() && request.auth.uid in dash().members && dash().members[request.auth.uid].role in ['owner', 'editor'];
+      }
+      // Editors may change dashboard-level CONTENT only — never who's on the
+      // dashboard or what role they hold (that's owner-only; DEV-2).
+      function editableFieldsOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['goals', 'teamGoal', 'habits', 'settings', 'name', 'public', 'updatedAt']);
+      }
+      // Any member (editor or viewer) may bump ONLY `updatedAt` — this is what
+      // keeps a dashboard showing as "recently active" after any member logs a
+      // weigh-in, without granting a viewer write access to anything else
+      // (DEV-4: a viewer's weigh-in must never be blocked by this).
+      function onlyBumpsUpdatedAt() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']);
+      }
+      // A non-member may add ONLY themselves, and ONLY by redeeming a real,
+      // pending invite for this exact dashboard + their signed-in email (DEV-1).
+      // Invites are keyed `{dashId}_{toEmail}` specifically so this is checkable
+      // without a query — see data/firestore.js createInvite.
+      function invite() {
+        return get(/databases/$(database)/documents/invites/$(dashId + '_' + request.auth.token.email)).data;
+      }
+      function selfJoining() {
+        return signedIn()
+          && !(request.auth.uid in dash().memberUids)
+          && exists(/databases/$(database)/documents/invites/$(dashId + '_' + request.auth.token.email))
+          && invite().status == 'pending'
+          && invite().dashboardId == dashId
+          && invite().toEmail == request.auth.token.email
+          && request.resource.data.ownerUid == dash().ownerUid
+          && request.resource.data.memberUids.hasAll(dash().memberUids)
+          && request.resource.data.memberUids.hasOnly(dash().memberUids.concat([request.auth.uid]))
+          && request.resource.data.trackedUids.hasAll(dash().trackedUids)
+          && request.resource.data.trackedUids.hasOnly(dash().trackedUids.concat([request.auth.uid]))
+          && request.resource.data.members.diff(dash().members).affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.members[request.auth.uid].role == invite().role
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['memberUids', 'trackedUids', 'members', 'updatedAt']);
+      }
+      // The mirror of selfJoining: any non-owner member may remove ONLY
+      // themselves (DEV-7 leave-dashboard). Same shared function the owner
+      // uses to remove someone else (data/firestore.js removeMember) — the
+      // caller-vs-target distinction lives entirely in this rule.
+      // Deliberately simple (size-delta) rather than the exact hasAll/hasOnly
+      // set-diff selfJoining() uses — a member removing themselves is low-risk
+      // (the JS call site only ever passes the caller's own uid; see
+      // data/firestore.js removeMember), so this favors robustness over
+      // maximal strictness per explicit product direction.
+      function selfLeaving() {
+        return signedIn()
+          && request.auth.uid in dash().memberUids
+          && request.auth.uid != dash().ownerUid
+          && request.resource.data.ownerUid == dash().ownerUid
+          && !(request.auth.uid in request.resource.data.memberUids)
+          && !(request.auth.uid in request.resource.data.members)
+          && request.resource.data.memberUids.size() == dash().memberUids.size() - 1
+          && request.resource.data.members.size() == dash().members.size() - 1
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['memberUids', 'trackedUids', 'members', 'updatedAt']);
+      }
+
+      allow read: if isMember();
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.auth.uid in request.resource.data.memberUids;
+      allow update: if isOwner()
+        || (hasEditorRole() && editableFieldsOnly())
+        || selfJoining()
+        || selfLeaving()
+        || (isMember() && onlyBumpsUpdatedAt());
+      allow delete: if isOwner();
+
+      // Denormalized per-member series: self-write, member-read. Delete is
+      // also allowed for the dashboard owner — needed to clean up every
+      // member's series doc when the whole dashboard is deleted (DEV-7);
+      // nobody but the owner of THIS record can ever overwrite its content.
+      match /series/{uid} {
+        allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/dashboards/$(dashId)).data.memberUids;
+        allow write: if isUser(uid) && request.resource.data.entries.size() < 5000;
+        allow delete: if isUser(uid) || get(/databases/$(database)/documents/dashboards/$(dashId)).data.ownerUid == request.auth.uid;
+      }
+      // Habit completions: self-write, member-read. Same owner-cleanup delete
+      // allowance as series, above.
+      match /habitLogs/{uid} {
+        allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/dashboards/$(dashId)).data.memberUids;
+        allow write: if isUser(uid);
+        allow delete: if isUser(uid) || get(/databases/$(database)/documents/dashboards/$(dashId)).data.ownerUid == request.auth.uid;
+      }
+      // Non-scale-victory notes: member-read; author-write; author OR the
+      // dashboard owner may delete (their own note, or cleanup — DEV-9).
+      // Create requires actual dashboard membership, not just "claims to be
+      // me" (DEV-18).
+      match /nsv/{noteId} {
+        allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/dashboards/$(dashId)).data.memberUids;
+        allow create: if signedIn()
+          && request.resource.data.uid == request.auth.uid
+          && request.auth.uid in get(/databases/$(database)/documents/dashboards/$(dashId)).data.memberUids;
+        allow update: if signedIn() && resource.data.uid == request.auth.uid;
+        allow delete: if signedIn() && (
+          resource.data.uid == request.auth.uid ||
+          get(/databases/$(database)/documents/dashboards/$(dashId)).data.ownerUid == request.auth.uid
+        );
+      }
+    }
+
+    // ---- Invites ----
+    // Keyed `{dashboardId}_{toEmail}` (lowercased) so the dashboard-join rule
+    // above can look one up directly — see selfJoining(). A second invite to
+    // the same person for the same dashboard overwrites the first rather than
+    // creating a duplicate, which is the behavior we want anyway.
+    match /invites/{inviteId} {
+      allow read: if signedIn() && (
+        resource.data.fromUid == request.auth.uid ||
+        resource.data.toEmail == request.auth.token.email
+      );
+      function targetDash() {
+        return get(/databases/$(database)/documents/dashboards/$(request.resource.data.dashboardId)).data;
+      }
+      allow create: if signedIn()
+        && request.resource.data.fromUid == request.auth.uid
+        && inviteId == request.resource.data.dashboardId + '_' + request.resource.data.toEmail
+        && (
+          targetDash().ownerUid == request.auth.uid
+          || (request.auth.uid in targetDash().members && targetDash().members[request.auth.uid].role in ['owner', 'editor'])
+        );
+      // Invitee accepts/declines (status only); inviter cancels/updates.
+      allow update: if signedIn() && (
+        (resource.data.toEmail == request.auth.token.email && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+        resource.data.fromUid == request.auth.uid
+      );
+      allow delete: if signedIn() && resource.data.fromUid == request.auth.uid;
+    }
+
+    // ---- Public read-only snapshots (no login) ----
+    // World-readable by design (that's the point of the link), but writable
+    // only by the owning dashboard's owner/editor (DEV-6) — not "any signed-in
+    // user", which would let a stranger deface or spoof someone else's link.
+    match /publicViews/{token} {
+      function dashOfRequest() {
+        return get(/databases/$(database)/documents/dashboards/$(request.resource.data.dashboardId)).data;
+      }
+      function dashOfResource() {
+        return get(/databases/$(database)/documents/dashboards/$(resource.data.dashboardId)).data;
+      }
+      function isEditorOf(d) {
+        return d.ownerUid == request.auth.uid || (request.auth.uid in d.members && d.members[request.auth.uid].role in ['owner', 'editor']);
+      }
+      allow read: if true;
+      allow create, update: if signedIn() && request.resource.data.dashboardId is string && isEditorOf(dashOfRequest());
+      allow delete: if signedIn() && isEditorOf(dashOfResource());
+    }
+  }
+}

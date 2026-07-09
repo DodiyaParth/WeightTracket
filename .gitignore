@@ -1,0 +1,7 @@
+node_modules
+dist-design
+.DS_Store
+*.local
+.claude
+.cursor
+.scout
