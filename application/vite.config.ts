@@ -39,7 +39,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: './src/test/setup.js',
+    setupFiles: './src/test/setup.ts',
     css: false,
     // Force Firebase "unconfigured" during tests so nothing tries to reach a
     // real backend (application/.env.local carries live keys for dev). Tests

@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "seed": "node scripts/seed-firestore.mjs"
+    "seed": "tsx scripts/seed-firestore.ts"
   },
   "dependencies": {
     "chart.js": "^4.5.1",
@@ -39,6 +39,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "firebase-admin": "^13.10.0",
     "jsdom": "^29.1.1",
+    "tsx": "^4.23.0",
     "typescript": "^7.0.2",
     "vite": "^5.4.8",
     "vitest": "^4.1.9"
