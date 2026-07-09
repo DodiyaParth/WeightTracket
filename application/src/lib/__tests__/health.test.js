@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  bmiValue, bmiCategory, healthyRange, isSafePace, goalProgress, paceCheck, verdictVsIdeal,
+  bmiValue, bmiCategory, healthyRange, isSafePace, goalProgress, paceCheck, verdictVsIdeal, idealLine,
 } from '../health.js';
 
 describe('BMI', () => {
@@ -44,5 +44,22 @@ describe('safe pace + goals', () => {
     expect(behind).toBe('behind');
     const ahead = verdictVsIdeal({ startKg: 90, startISO: '2026-01-01', targetKg: 80, targetISO: '2026-12-31', currentKg: 84, todayIso: '2026-04-01' });
     expect(ahead).toBe('ahead');
+  });
+  it('verdictVsIdeal: onTrack for missing/degenerate inputs and small diffs', () => {
+    expect(verdictVsIdeal({ startKg: 90, startISO: '2026-01-01', targetKg: 80, targetISO: null, currentKg: 89 })).toBe('onTrack');
+    expect(verdictVsIdeal({ startKg: 90, startISO: '2026-12-31', targetKg: 80, targetISO: '2026-01-01', currentKg: 89 })).toBe('onTrack');
+    const onLine = verdictVsIdeal({ startKg: 90, startISO: '2026-01-01', targetKg: 80, targetISO: '2026-12-31', currentKg: 87.5, todayIso: '2026-04-01' });
+    expect(onLine).toBe('onTrack');
+  });
+});
+
+describe('idealLine', () => {
+  it('returns null without a dated target', () => {
+    expect(idealLine({ currentKg: 90, targetKg: null, targetISO: '2026-12-31' })).toBeNull();
+    expect(idealLine({ currentKg: 90, targetKg: 80, targetISO: null })).toBeNull();
+  });
+  it('returns the today→target segment', () => {
+    expect(idealLine({ currentKg: 90, targetKg: 80, targetISO: '2026-12-31', todayIso: '2026-01-01' }))
+      .toEqual([{ date: '2026-01-01', kg: 90 }, { date: '2026-12-31', kg: 80 }]);
   });
 });
