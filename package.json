@@ -10,6 +10,10 @@
     "test": "npm --prefix application run test",
     "test:coverage": "npm --prefix application run test:coverage",
     "seed": "npm --prefix application run seed",
-    "setup": "npm --prefix application install"
+    "setup": "npm install && npm --prefix application install",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
   }
 }

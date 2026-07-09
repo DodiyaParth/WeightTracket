@@ -28,6 +28,19 @@ npm run seed     # seed the default Firestore account (see application/README.md
 Firebase keys live in `application/.env.local`. See [`application/README.md`](application/README.md) for the
 full app docs (architecture, seeding, deployment).
 
+## Pre-commit checks
+
+`npm run setup` installs a Husky `pre-commit` hook (see [`.husky/pre-commit`](.husky/pre-commit)) that runs the
+full application test suite with coverage — `npm run test:coverage` — before every commit. A commit is blocked if:
+
+- any test fails, or
+- statement or branch coverage drops below the 90% thresholds configured in
+  [`application/vite.config.js`](application/vite.config.js).
+
+If a commit is rejected, fix the failing test(s) or add coverage for the newly-uncovered lines/branches, then
+re-run `git commit`. In a genuine emergency you can bypass the hook with `git commit --no-verify`, but treat that
+as a last resort — it defeats the whole point of the gate.
+
 ## The design prototype
 
 The design prototype is self-contained in [`design/`](design) and is run on its own:

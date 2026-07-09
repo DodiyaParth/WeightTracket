@@ -1,0 +1,2 @@
+echo "Running application test suite + coverage thresholds before commit..."
+npm run test:coverage
