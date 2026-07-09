@@ -11,9 +11,10 @@ state. Not production code: no backend, no real auth, all data hardcoded in `dat
 
 ## Run it
 ```bash
+cd design
 npm install
 npm run dev      # http://localhost:5180
-npm run build    # → dist-design/
+npm run build    # → dist/
 ```
 
 ## The model that ties it together

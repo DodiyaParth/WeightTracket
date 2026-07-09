@@ -1,22 +1,14 @@
 {
-  "name": "weighttracker-design-prototype",
+  "name": "weighttracker-monorepo",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "description": "Throwaway UI prototype for WeightTracker (design exploration only — not the production code).",
+  "version": "0.1.0",
+  "description": "Repo root — dev/build/test default to the production app in application/. The design prototype is a standalone project in design/.",
   "scripts": {
-    "dev": "vite",
-    "watch": "vite build --watch",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.8"
+    "dev": "npm --prefix application run dev",
+    "build": "npm --prefix application run build",
+    "preview": "npm --prefix application run preview",
+    "test": "npm --prefix application run test",
+    "seed": "npm --prefix application run seed",
+    "setup": "npm --prefix application install"
   }
 }
