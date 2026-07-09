@@ -66,4 +66,18 @@ describe('Profile', () => {
     await userEvent.click(screen.getByRole('button', { name: /sign out/i }));
     expect(authValue.signOutUser).toHaveBeenCalled();
   });
+
+  it('falls back to auth data before the profile loads and saves sensible defaults', async () => {
+    profileData = null;
+    renderWithRouter(<Profile />);
+    expect(screen.getByText('Parth')).toBeInTheDocument(); // from user.displayName
+    await userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    expect(updateProfile).toHaveBeenCalledWith('parth', { name: 'You', heightM: null });
+  });
+
+  it('handles a profile with no height set', () => {
+    profileData = { uid: 'parth', name: 'Parth' };
+    renderWithRouter(<Profile />);
+    expect(screen.getByPlaceholderText('e.g. 1.78')).toHaveValue('');
+  });
 });

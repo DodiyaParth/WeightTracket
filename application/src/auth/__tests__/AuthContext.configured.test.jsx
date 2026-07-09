@@ -142,4 +142,36 @@ describe('AuthContext (Firebase configured)', () => {
     expect(sessionStorage.getItem('wt_landed_u1')).toBe(null);
     expect(sessionStorage.getItem('keep_me')).toBe('yes');
   });
+
+  // Errors without a `.code` must fall back to the generic labels.
+  it('falls back to a generic label when getRedirectResult rejects without a code', async () => {
+    getRedirectResult.mockRejectedValue({});
+    const { result } = setup();
+    await waitFor(() => expect(result.current.error).toBe('sign-in-failed'));
+  });
+
+  it('falls back to a generic label for a codeless popup error', async () => {
+    signInWithPopup.mockRejectedValue({});
+    const { result } = setup();
+    await act(async () => { await result.current.signInWithGoogle(); });
+    expect(result.current.error).toBe('sign-in-failed');
+  });
+
+  it('falls back to a generic label when the redirect fallback rejects without a code', async () => {
+    signInWithPopup.mockRejectedValue({ code: 'auth/popup-blocked' });
+    signInWithRedirect.mockRejectedValue({});
+    const { result } = setup();
+    await act(async () => { await result.current.signInWithGoogle(); });
+    expect(result.current.error).toBe('sign-in-failed');
+  });
+
+  it('falls back to generic labels for codeless email sign-in / sign-up errors', async () => {
+    signInWithEmailAndPassword.mockRejectedValue({});
+    createUserWithEmailAndPassword.mockRejectedValue({});
+    const { result } = setup();
+    await act(async () => { await result.current.signInWithEmail('a@b.com', 'pw'); });
+    expect(result.current.error).toBe('sign-in-failed');
+    await act(async () => { await result.current.signUpWithEmail('a@b.com', 'pw'); });
+    expect(result.current.error).toBe('sign-up-failed');
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 
 // One fake repo whose every method resolves; a synchronous bus is enough here.
 vi.mock('../../data/repo.js', () => {
@@ -69,5 +69,47 @@ describe('useAsync error path', () => {
     await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
     expect(result.current.data).toBeUndefined();
     expect(result.current.loading).toBe(false);
+  });
+});
+
+describe('useProfiles — key building', () => {
+  it('tolerates an undefined uid list and resolves to {} without calling the repo', async () => {
+    const { result } = renderHook(() => useProfiles(undefined));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(repo.getProfiles).not.toHaveBeenCalled();
+    expect(result.current.data).toEqual({});
+  });
+});
+
+// The request-id guard is the reason two views can refetch without clobbering
+// each other — a slow, superseded fetch must never overwrite fresh data.
+describe('useAsync — stale request guard', () => {
+  it('drops a late-resolving response once the deps have moved on', async () => {
+    let resolveFirst;
+    repo.listWeights
+      .mockReturnValueOnce(new Promise((r) => { resolveFirst = r; }))
+      .mockResolvedValueOnce([{ id: 'fresh' }]);
+
+    const { result, rerender } = renderHook(({ uid }) => useWeights(uid), { initialProps: { uid: 'u1' } });
+    rerender({ uid: 'u2' });
+    await waitFor(() => expect(result.current.data).toEqual([{ id: 'fresh' }]));
+
+    await act(async () => { resolveFirst([{ id: 'stale' }]); await Promise.resolve(); });
+    expect(result.current.data).toEqual([{ id: 'fresh' }]);
+  });
+
+  it('drops a late rejection once the deps have moved on', async () => {
+    let rejectFirst;
+    repo.listWeights
+      .mockReturnValueOnce(new Promise((_res, rej) => { rejectFirst = rej; }))
+      .mockResolvedValueOnce([{ id: 'fresh' }]);
+
+    const { result, rerender } = renderHook(({ uid }) => useWeights(uid), { initialProps: { uid: 'u1' } });
+    rerender({ uid: 'u2' });
+    await waitFor(() => expect(result.current.data).toEqual([{ id: 'fresh' }]));
+
+    await act(async () => { rejectFirst(new Error('stale')); await Promise.resolve(); });
+    expect(result.current.error).toBe(null);
+    expect(result.current.data).toEqual([{ id: 'fresh' }]);
   });
 });

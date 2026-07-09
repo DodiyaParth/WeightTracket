@@ -59,4 +59,8 @@ describe('classifyEntries', () => {
     const r = classifyEntries([], existing);
     expect(r).toEqual({ fresh: [], unchanged: [], conflicting: [] });
   });
+
+  it('tolerates undefined incoming and existing arguments', () => {
+    expect(classifyEntries(undefined, undefined)).toEqual({ fresh: [], unchanged: [], conflicting: [] });
+  });
 });

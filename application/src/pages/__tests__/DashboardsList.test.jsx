@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, within, fireEvent } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithRouter, userEvent } from '../../test/test-utils.jsx';
 
@@ -11,12 +11,14 @@ vi.mock('../../components/CreateDashboard.jsx', () => ({ default: () => <div>CRE
 let authValue;
 let dashboardsState;
 let invitesData;
+let seriesData;
+let profilesData;
 vi.mock('../../auth/AuthContext.jsx', () => ({ useAuth: () => authValue }));
 vi.mock('../../hooks/useData.js', () => ({
   useDashboards: () => dashboardsState,
   useInvites: () => ({ data: invitesData }),
-  useDashboardSeries: () => ({ data: {} }),
-  useProfiles: () => ({ data: {} }),
+  useDashboardSeries: () => ({ data: seriesData }),
+  useProfiles: () => ({ data: profilesData }),
 }));
 
 const acceptInvite = vi.fn();
@@ -56,6 +58,8 @@ beforeEach(() => {
   authValue = { user: { uid: 'parth', email: 'p@x.com' } };
   dashboardsState = { data: dashboards, loading: false, error: null, reload: vi.fn() };
   invitesData = [];
+  seriesData = {};
+  profilesData = {};
   acceptInvite.mockResolvedValue();
   declineInvite.mockResolvedValue();
 });
@@ -119,5 +123,44 @@ describe('DashboardsList', () => {
     expect(screen.getByText('Decline this invite?')).toBeInTheDocument();
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Decline' }));
     expect(declineInvite).toHaveBeenCalledWith('inv1');
+  });
+});
+
+describe('DashboardsList — branch coverage', () => {
+  it('renders a bare dashboard with no members/tracked/series/profiles', () => {
+    dashboardsState = {
+      data: [{
+        id: 'dx', name: 'Bare', ownerUid: 'parth', updatedAt: Date.now(),
+        members: { parth: { uid: 'parth', role: 'owner', joinedAt: 1 } },
+      }],
+      loading: false, error: null, reload: vi.fn(),
+    };
+    seriesData = undefined;
+    profilesData = undefined;
+    renderList();
+    expect(screen.getByRole('button', { name: 'Open Bare' })).toBeInTheDocument();
+  });
+
+  it('ignores non-activating keys on the dashboard and create cards', async () => {
+    renderList();
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Open Parth & Priya' }), { key: 'Escape' });
+    expect(screen.queryByText('DASH PAGE')).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Create new dashboard' }), { key: 'Escape' });
+    expect(screen.queryByText('CREATE MODAL')).not.toBeInTheDocument();
+  });
+
+  it('renders a viewer invite with no member count', () => {
+    invitesData = [{ id: 'inv2', fromName: 'Bob', fromInitial: 'B', dashboardName: 'Solo', role: 'viewer' }];
+    renderList();
+    expect(screen.getByText(/you.ll be a viewer/)).toBeInTheDocument();
+    expect(screen.queryByText(/people ·/)).not.toBeInTheDocument();
+  });
+
+  it('surfaces a row error when accepting an invite fails', async () => {
+    acceptInvite.mockRejectedValueOnce(new Error('accept nope'));
+    invitesData = [{ id: 'inv3', fromName: 'Cara', fromInitial: 'C', dashboardName: 'Crew', role: 'editor', members: 3 }];
+    renderList();
+    await userEvent.click(screen.getByRole('button', { name: /accept/i }));
+    expect(await screen.findByText(/Couldn.t accept that invite/)).toBeInTheDocument();
   });
 });

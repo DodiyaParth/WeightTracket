@@ -13,7 +13,8 @@ vi.mock('../../data/repo.js', () => ({
 }));
 
 import HabitsSection from '../HabitsSection.jsx';
-import { todayISO } from '../../lib/date.js';
+import { todayISO, addDays } from '../../lib/date.js';
+import { GRACE } from '../../lib/habits.js';
 
 const members = [{ uid: 'parth', name: 'Parth', color: '#1' }, { uid: 'priya', name: 'Priya', color: '#2' }];
 const baseDashboard = {
@@ -122,5 +123,84 @@ describe('HabitsSection - read only', () => {
     expect(screen.getByText("Parth’s checklist")).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /add habit/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Rename 10k steps' })).not.toBeInTheDocument();
+  });
+});
+
+// ---- Branch-focused scenarios --------------------------------------------
+describe('HabitsSection - branch coverage', () => {
+  it('falls back to defaults with no habits, no team goal, no logs, unknown me', () => {
+    renderHabits({ dashboard: { id: 'd9' }, members: [], meUid: 'ghost', logs: {} });
+    expect(screen.getByText('Daily behaviors toward your goal')).toBeInTheDocument();
+    expect(screen.getByText(/no habits yet/i)).toBeInTheDocument();
+  });
+
+  it('closing a rename with an empty label does not save', async () => {
+    renderHabits();
+    await userEvent.click(screen.getByRole('button', { name: 'Rename 10k steps' }));
+    const input = screen.getByDisplayValue('10k steps');
+    await userEvent.clear(input);
+    await userEvent.type(input, '{Enter}');
+    expect(updateDashboard).not.toHaveBeenCalled();
+  });
+
+  it('cancels a rename with Escape', async () => {
+    renderHabits();
+    await userEvent.click(screen.getByRole('button', { name: 'Rename No sugar' }));
+    const input = screen.getByDisplayValue('No sugar');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByDisplayValue('No sugar')).not.toBeInTheDocument();
+  });
+
+  it('surfaces a rename error inline', async () => {
+    updateDashboard.mockRejectedValueOnce(new Error('rename failed'));
+    renderHabits();
+    await userEvent.click(screen.getByRole('button', { name: 'Rename 10k steps' }));
+    const input = screen.getByDisplayValue('10k steps');
+    await userEvent.clear(input);
+    await userEvent.type(input, '12k steps{Enter}');
+    expect(await screen.findByText('rename failed')).toBeInTheDocument();
+  });
+
+  it('renders grace days and a repaired streak, in All and per-member scope', async () => {
+    const graceLogs = {
+      parth: { h1: { [addDays(todayISO(), -2)]: 1, [addDays(todayISO(), -1)]: GRACE, [todayISO()]: 1 } },
+      priya: {},
+    };
+    renderHabits({ logs: graceLogs });
+    // checklist shows the repaired marker
+    expect(screen.getAllByText(/repaired/).length).toBeGreaterThan(0);
+    // per-member scope path (cellKind scope !== 'all')
+    await userEvent.click(screen.getByRole('button', { name: 'Parth' }));
+    expect(screen.getByText('streak repaired')).toBeInTheDocument();
+  });
+
+  it('toggles a previously-unmarked grid cell to done (1)', async () => {
+    renderHabits();
+    await userEvent.click(screen.getByRole('button', { name: 'Parth' }));
+    const blank = addDays(todayISO(), -5);
+    fireEvent.click(screen.getAllByRole('button', { name: blank })[0]);
+    expect(setHabitMark).toHaveBeenCalledWith('d1', 'parth', 'h1', blank, 1);
+  });
+
+  it('shows a grid save error when a cell toggle fails', async () => {
+    setHabitMark.mockRejectedValueOnce(new Error('nope'));
+    renderHabits();
+    await userEvent.click(screen.getByRole('button', { name: 'Parth' }));
+    fireEvent.click(screen.getAllByRole('button', { name: todayISO() })[0]);
+    expect(await screen.findByText(/couldn.t save that day/i)).toBeInTheDocument();
+  });
+
+  it('add-habit: empty closes, Enter adds, and errors surface', async () => {
+    updateDashboard.mockRejectedValueOnce(new Error('add failed'));
+    renderHabits();
+    // Enter with an empty field just closes the composer
+    await userEvent.click(screen.getByRole('button', { name: /add habit/i }));
+    await userEvent.type(screen.getByPlaceholderText(/new habit/i), '{Enter}');
+    expect(updateDashboard).not.toHaveBeenCalled();
+
+    // reopen, add via Enter → rejected → error visible
+    await userEvent.click(screen.getByRole('button', { name: /add habit/i }));
+    await userEvent.type(screen.getByPlaceholderText(/new habit/i), 'Meditate{Enter}');
+    expect(await screen.findByText('add failed')).toBeInTheDocument();
   });
 });

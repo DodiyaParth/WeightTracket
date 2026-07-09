@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { addDays } from '../date.js';
-import { milestones, milestoneProgress, computeState, getMessage, STATUS } from '../motivation.js';
+import { milestones, milestoneProgress, computeState, getMessage, STATUS, MOTIV } from '../motivation.js';
 
 function series(startIso, days, startKg, perDay) {
   return Array.from({ length: days }, (_, i) => ({ date: addDays(startIso, i), kg: +(startKg + perDay * i).toFixed(1) }));
@@ -10,6 +10,11 @@ describe('milestones', () => {
   it('computes 5% / 10% thresholds and progress', () => {
     expect(milestones(90)).toEqual({ m5: 4.5, m10: 9 });
     expect(milestoneProgress(90, 85.5)).toBeCloseTo(0.5, 5);
+  });
+  it('guards against a zero / missing start weight', () => {
+    expect(milestones(0)).toEqual({ m5: 0, m10: 0 });
+    expect(milestoneProgress(0, 0)).toBe(0);
+    expect(milestoneProgress(90, 95)).toBe(0); // gained → no progress, not negative
   });
 });
 
@@ -35,6 +40,10 @@ describe('computeState', () => {
     const s = series('2026-01-01', 52, 90, -0.1);
     expect(computeState({ entries: s, goal: { startKg: 90 } })).toBe('milestone');
   });
+  it('honours an explicit milestoneJustHit flag', () => {
+    const s = series('2026-01-01', 30, 90, -0.1);
+    expect(computeState({ entries: s, goal: { startKg: 90 }, milestoneJustHit: true })).toBe('milestone');
+  });
 });
 
 describe('getMessage', () => {
@@ -46,5 +55,10 @@ describe('getMessage', () => {
   it('STATUS marks behind/plateau as "away"', () => {
     expect(STATUS.behind.away).toBe(true);
     expect(STATUS.onTrack.away).toBe(false);
+  });
+  it('falls back to onTrack copy for an unknown state and blanks {kg} when absent', () => {
+    const m = getMessage('totally-unknown');
+    expect(m.title).toBe(MOTIV.onTrack.title);
+    expect(m.body).not.toContain('{kg}');
   });
 });

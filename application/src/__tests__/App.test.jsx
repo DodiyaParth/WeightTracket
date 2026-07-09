@@ -71,4 +71,28 @@ describe('App routing', () => {
     renderWithRouter(<App />, { route: '/' });
     expect(screen.getByText('SPLASH')).toBeInTheDocument();
   });
+
+  it('skips the landing redirect on a later visit (already landed this session)', async () => {
+    sessionStorage.setItem('wt_landed_parth', '1');
+    landingRoute.mockReturnValue('/dashboard/d1'); // would redirect, but we already landed
+    renderWithRouter(<App />, { route: '/' });
+    expect(await screen.findByText('DASH_LIST')).toBeInTheDocument();
+    expect(landingRoute).not.toHaveBeenCalled();
+  });
+
+  it('defaults an undefined dashboards list to [] when choosing the landing route', async () => {
+    dashboardsState = { data: undefined, loading: false };
+    landingRoute.mockReturnValue('/dashboard/d1');
+    renderWithRouter(<App />, { route: '/' });
+    expect(await screen.findByText('DASH_DETAIL')).toBeInTheDocument();
+    expect(landingRoute).toHaveBeenCalledWith([], 'parth');
+  });
+
+  it('tolerates sessionStorage throwing while resolving the landing route', async () => {
+    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+    landingRoute.mockReturnValue('/');
+    renderWithRouter(<App />, { route: '/' });
+    expect(await screen.findByText('DASH_LIST')).toBeInTheDocument();
+    spy.mockRestore();
+  });
 });

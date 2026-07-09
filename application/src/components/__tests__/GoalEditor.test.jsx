@@ -86,4 +86,30 @@ describe('GoalEditor', () => {
     expect(removeButtons.length).toBeGreaterThan(0);
     fireEvent.click(removeButtons[0]);
   });
+
+  it('renders a member with no current weight and no team goal', () => {
+    const noTeam = { ...dashboard, teamGoal: undefined, goals: {} };
+    // series omitted → currentWeight falls back to [] and current shows as a dash
+    renderWithRouter(<GoalEditor dashboard={noTeam} profiles={profiles} onClose={vi.fn()} />);
+    expect(screen.getAllByText((_, el) => el?.textContent === 'now —').length).toBeGreaterThan(0);
+    expect(screen.queryByDisplayValue('Lose 15 kg together')).not.toBeInTheDocument();
+  });
+
+  it('edits a target weight and then clears it', async () => {
+    renderEditor();
+    const targetInput = screen.getByDisplayValue('80'); // Parth's target
+    await userEvent.clear(targetInput);
+    expect(targetInput).toHaveValue('');
+    await userEvent.type(targetInput, '68');
+    expect(targetInput).toHaveValue('68');
+  });
+
+  it('defaults the team target to 10 when the number is blank', async () => {
+    renderEditor();
+    await userEvent.clear(screen.getByDisplayValue('15')); // team target
+    await userEvent.click(screen.getByRole('button', { name: 'Save goals' }));
+    expect(updateDashboard).toHaveBeenCalledWith('d1', expect.objectContaining({
+      teamGoal: { label: 'Lose 15 kg together', target: 10 },
+    }));
+  });
 });

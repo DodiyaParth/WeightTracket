@@ -10,6 +10,7 @@ describe('BMI', () => {
     expect(bmiCategory(bmiValue(70, 1.78))).toBe('healthy');
     expect(bmiCategory(17)).toBe('underweight');
     expect(bmiCategory(32)).toBe('obese');
+    expect(bmiCategory(null)).toBeNull();
     expect(bmiValue(80, null)).toBeNull();
   });
   it('healthy band brackets 18.5–24.9', () => {
@@ -28,6 +29,10 @@ describe('safe pace + goals', () => {
     expect(goalProgress({ start: 90, current: 85, target: 80 })).toBeCloseTo(0.5, 5);
     expect(goalProgress({ start: 90, current: 92, target: 80 })).toBe(0);
     expect(goalProgress({ start: 90, current: 78, target: 80 })).toBe(1);
+  });
+  it('goalProgress handles a zero-length goal (start === target)', () => {
+    expect(goalProgress({ start: 80, current: 80, target: 80 })).toBe(1);
+    expect(goalProgress({ start: 80, current: 81, target: 80 })).toBe(0);
   });
   it('paceCheck: maintain / safe / unsafe / no-date', () => {
     expect(paceCheck({ current: 80, target: 82 }).tone).toBe('ok'); // already below

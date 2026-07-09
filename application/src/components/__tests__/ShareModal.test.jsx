@@ -145,3 +145,55 @@ describe('ShareModal (non-owner)', () => {
     expect(screen.queryByRole('button', { name: 'Remove Priya' })).not.toBeInTheDocument();
   });
 });
+
+describe('ShareModal - branch coverage', () => {
+  it('ignores an empty invite, uses a default name, and surfaces invite errors', async () => {
+    authUser = { uid: 'parth' }; // no displayName → "A teammate"
+    renderShare();
+    await userEvent.click(screen.getByRole('button', { name: 'Invite' }));
+    expect(createInvite).not.toHaveBeenCalled();
+
+    createInvite.mockRejectedValueOnce(new Error('invite blew up'));
+    await userEvent.type(screen.getByPlaceholderText('name@email.com'), 'x@y.com');
+    await userEvent.click(screen.getByRole('button', { name: 'Invite' }));
+    expect(createInvite).toHaveBeenCalledWith('d1', expect.objectContaining({ fromName: 'A teammate' }));
+    expect(await screen.findByText('invite blew up')).toBeInTheDocument();
+  });
+
+  it('shows a row error when a role change fails', async () => {
+    updateMemberRole.mockRejectedValueOnce(new Error('x'));
+    renderShare();
+    const priyaGroup = screen.getByRole('radiogroup', { name: /Priya’s access level/ });
+    await userEvent.click(within(priyaGroup).getByRole('radio', { name: 'Read only' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Change' }));
+    expect((await screen.findAllByText(/Couldn.t update that member.s role/)).length).toBeGreaterThan(0);
+  });
+
+  it('surfaces an error when enabling the link fails', async () => {
+    outgoingData = undefined; // exercise the `outgoing || []` fallback
+    setPublicLink.mockRejectedValueOnce(new Error('link nope'));
+    renderShare();
+    await userEvent.click(screen.getByRole('button', { name: 'Enable' }));
+    expect(await screen.findByText('link nope')).toBeInTheDocument();
+  });
+
+  it('renders a pending invite with no initial and ignores non-pending ones', () => {
+    outgoingData = [
+      { id: 'i1', toEmail: 'a@b.com', status: 'pending' }, // no fromInitial → ✉ fallback
+      { id: 'i2', toEmail: 'done@b.com', status: 'accepted' }, // filtered out
+    ];
+    renderShare();
+    expect(screen.getByText('a@b.com')).toBeInTheDocument();
+    expect(screen.queryByText('done@b.com')).not.toBeInTheDocument();
+    expect(screen.getByText('✉')).toBeInTheDocument();
+  });
+
+  it('confirms a viewer→editor promotion with the right copy', async () => {
+    renderShare(ownedDashboard({
+      members: { parth: { uid: 'parth', role: 'owner', joinedAt: 1 }, priya: { uid: 'priya', role: 'viewer', joinedAt: 2 } },
+    }));
+    const priyaGroup = screen.getByRole('radiogroup', { name: /Priya’s access level/ });
+    await userEvent.click(within(priyaGroup).getByRole('radio', { name: 'Can edit' }));
+    expect(screen.getByText(/from Read only to Can edit/)).toBeInTheDocument();
+  });
+});

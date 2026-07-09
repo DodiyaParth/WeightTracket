@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { screen } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithRouter, userEvent } from '../../test/test-utils.jsx';
-import { todayISO } from '../../lib/date.js';
+import { todayISO, addDays } from '../../lib/date.js';
 
 vi.mock('../../auth/AuthContext.jsx', () => ({
   useAuth: () => ({ user: { uid: 'parth', displayName: 'Parth' } }),
@@ -116,5 +116,64 @@ describe('QuickLog edit flow', () => {
     await userEvent.click(screen.getByRole('button', { name: /delete/i }));
     expect(deleteWeight).toHaveBeenCalledWith('parth', 'w1');
     expect(await screen.findByText('Entry deleted')).toBeInTheDocument();
+  });
+});
+
+describe('QuickLog - branch coverage', () => {
+  it('defaults to 70.00 with no history and prefills a chosen date', async () => {
+    weightsData = [];
+    renderQuickLog({ date: addDays(todayISO(), -2) });
+    await userEvent.click(screen.getByText('OPEN'));
+    expect(screen.getByLabelText('Weight in kg').value).toBe('70.00');
+  });
+
+  it('steps up from an empty field and formats on blur', async () => {
+    weightsData = [];
+    renderQuickLog();
+    await userEvent.click(screen.getByText('OPEN'));
+    const input = screen.getByLabelText('Weight in kg');
+    await userEvent.clear(input);
+    await userEvent.click(screen.getByRole('button', { name: 'plus 0.1' }));
+    expect(input.value).toBe('0.10');
+    await userEvent.clear(input);
+    fireEvent.blur(input);
+    expect(input.value).toBe('0.00');
+  });
+
+  it('ignores a save with a blank/zero weight', async () => {
+    renderQuickLog();
+    await userEvent.click(screen.getByText('OPEN'));
+    const input = screen.getByLabelText('Weight in kg');
+    await userEvent.clear(input);
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(addWeight).not.toHaveBeenCalled();
+  });
+
+  it('saves when Enter is pressed in the weight field', async () => {
+    weightsData = [];
+    renderQuickLog();
+    await userEvent.click(screen.getByText('OPEN'));
+    const input = screen.getByLabelText('Weight in kg');
+    await userEvent.clear(input);
+    await userEvent.type(input, '77{Enter}');
+    expect(addWeight).toHaveBeenCalledWith('parth', expect.objectContaining({ kg: 77 }));
+  });
+
+  it('surfaces a save error inline', async () => {
+    weightsData = [];
+    addWeight.mockRejectedValueOnce(new Error('offline'));
+    renderQuickLog();
+    await userEvent.click(screen.getByText('OPEN'));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('offline')).toBeInTheDocument();
+  });
+
+  it('ignores an empty value from the date picker', async () => {
+    weightsData = [];
+    const { container } = renderQuickLog();
+    await userEvent.click(screen.getByText('OPEN'));
+    const picker = container.querySelector('input[type="date"]');
+    fireEvent.change(picker, { target: { value: '' } });
+    expect(screen.getByRole('radio', { name: 'Today' })).toHaveAttribute('aria-checked', 'true');
   });
 });

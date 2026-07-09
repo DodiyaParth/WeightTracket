@@ -93,3 +93,21 @@ describe('Layout notifications bell', () => {
     expect(screen.getByText(/all caught up/i)).toBeInTheDocument();
   });
 });
+
+describe('Layout - branch coverage', () => {
+  it('marks History active, falls back to a name, and tolerates missing data', () => {
+    authValue = { user: { uid: 'parth', email: 'ada@x.com' }, signOutUser: vi.fn() }; // no displayName
+    dashboardsData = undefined;
+    notificationsData = undefined;
+    renderWithRouter(<Layout title="History"><p>x</p></Layout>, { route: '/history' });
+    expect(screen.getByText('No dashboards yet')).toBeInTheDocument();
+    expect(screen.getByText('ada')).toBeInTheDocument(); // firstNameOf fallback from the email
+  });
+
+  it('ignores non-activating keys on the user row', () => {
+    renderWithRouter(<Layout title="X"><p>x</p></Layout>, { route: '/' });
+    const userRow = screen.getByRole('button', { name: /Parth/ });
+    fireEvent.keyDown(userRow, { key: 'Escape' });
+    expect(userRow).toBeInTheDocument();
+  });
+});

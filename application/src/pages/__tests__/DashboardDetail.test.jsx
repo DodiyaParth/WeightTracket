@@ -23,11 +23,13 @@ vi.mock('../../auth/AuthContext.jsx', () => ({ useAuth: () => authValue }));
 let dashboardState;
 let seriesData;
 let profilesData;
+let habitLogsData;
+let nsvData;
 vi.mock('../../hooks/useData.js', () => ({
   useDashboard: () => dashboardState,
   useDashboardSeries: () => ({ data: seriesData }),
-  useHabitLogs: () => ({ data: {} }),
-  useNsv: () => ({ data: {} }),
+  useHabitLogs: () => ({ data: habitLogsData }),
+  useNsv: () => ({ data: nsvData }),
   useProfiles: () => ({ data: profilesData }),
 }));
 
@@ -62,6 +64,8 @@ beforeEach(() => {
   dashboardState = { data: ownerD, loading: false, error: null, reload: vi.fn() };
   seriesData = {};
   profilesData = { parth: { uid: 'parth', name: 'Parth' }, priya: { uid: 'priya', name: 'Priya' } };
+  habitLogsData = {};
+  nsvData = {};
 });
 
 describe('DashboardDetail states', () => {
@@ -105,6 +109,35 @@ describe('DashboardDetail owner (editable)', () => {
   it('does not offer a Leave button to the owner', () => {
     renderDetail();
     expect(screen.queryByRole('button', { name: 'Leave' })).not.toBeInTheDocument();
+  });
+
+  it('tolerates undefined series/profiles/logs and still opens every modal', async () => {
+    seriesData = undefined;
+    profilesData = undefined;
+    habitLogsData = undefined;
+    nsvData = undefined;
+    renderDetail();
+    expect(screen.getByText('BODY')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Dashboard settings' }));
+    expect(screen.getByText('SETTINGS MODAL')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Share' }));
+    expect(screen.getByText('SHARE MODAL')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'edit-goals' }));
+    expect(screen.getByText('GOALS MODAL')).toBeInTheDocument();
+  });
+
+  it('pluralizes the collaborator count for 3+ members', () => {
+    dashboardState = {
+      data: {
+        ...ownerD,
+        members: { ...ownerD.members, sam: { uid: 'sam', role: 'editor', joinedAt: 3 } },
+        memberUids: ['parth', 'priya', 'sam'],
+      },
+      loading: false, error: null, reload: vi.fn(),
+    };
+    profilesData = { parth: { name: 'Parth' }, priya: { name: 'Priya' }, sam: { name: 'Sam' } };
+    renderDetail();
+    expect(screen.getByText(/you \+ 2 others/)).toBeInTheDocument();
   });
 });
 

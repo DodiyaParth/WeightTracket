@@ -61,4 +61,14 @@ describe('PublicView', () => {
     await userEvent.click(screen.getByRole('button', { name: /sign in to track your own/i }));
     expect(await screen.findByText('LOGIN')).toBeInTheDocument();
   });
+
+  it('defaults missing habits/series/habitLogs/nsv to empty collections', () => {
+    asyncState = {
+      data: { dashboardId: 'd1', name: 'Solo', members: {}, trackedUids: [], goals: {}, teamGoal: null },
+      loading: false, error: null, reload: vi.fn(),
+    };
+    renderPublic();
+    expect(screen.getByText('BODY')).toBeInTheDocument();
+    expect(screen.getByText('View only')).toBeInTheDocument();
+  });
 });

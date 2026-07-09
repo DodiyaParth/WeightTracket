@@ -46,6 +46,14 @@ describe('useAsyncAction', () => {
     expect(result.current.busy).toBe(false);
   });
 
+  it('falls back to a generic message when the error carries none', async () => {
+    const { result } = renderHook(() => useAsyncAction());
+    await act(async () => {
+      await result.current.run(async () => { throw 'no-message'; }).catch(() => {}); // eslint-disable-line no-throw-literal
+    });
+    expect(result.current.error).toBe('Something went wrong. Please try again.');
+  });
+
   it('lets callers clear the error via setError', async () => {
     const { result } = renderHook(() => useAsyncAction());
 

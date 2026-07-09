@@ -43,7 +43,7 @@ export default defineConfig({
         'src/components/Chart.jsx',
         'src/data/firestore.js',
       ],
-      thresholds: { statements: 90 },
+      thresholds: { statements: 90, branches: 90 },
     },
   },
 });
