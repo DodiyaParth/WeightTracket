@@ -35,8 +35,8 @@ function PersonGoal({ person, currentKg, g, onChange }: PersonGoalProps) {
         </div>
         <div>
           <label className="field-label">Target date</label>
-          {hasDate
-            ? <input className="input" type="date" min={todayISO()} value={g.targetISO!} onChange={(e) => onChange({ targetISO: e.target.value })} />
+          {g.targetISO
+            ? <input className="input" type="date" min={todayISO()} value={g.targetISO} onChange={(e) => onChange({ targetISO: e.target.value })} />
             : <button className="input date-field row between muted" onClick={() => onChange({ targetISO: addDays(todayISO(), 90) })}><span>No date set</span><Icon name="calendar" color="var(--muted)" /></button>}
         </div>
       </div>

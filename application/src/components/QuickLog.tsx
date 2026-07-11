@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Icon from './Icon.jsx';
 import { Toast } from './ui.jsx';
 import { useDialogA11y, Confirm } from './Modal.jsx';
-import { useAuth } from '../auth/AuthContext.jsx';
+import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useWeights } from '../hooks/useData.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { repo } from '../data/repo.js';
@@ -61,7 +61,7 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }: QuickL
 
   const doSave = async (kg: number) => {
     try {
-      await run(() => (editing ? repo.updateWeight(uid, entryId!, { kg, note, date }) : repo.addWeight(uid, { date, kg, note })));
+      await run(() => (entryId ? repo.updateWeight(uid, entryId, { kg, note, date }) : repo.addWeight(uid, { date, kg, note })));
     } catch { return; }
     onSaved(`${editing ? 'Updated' : 'Logged'} ${fmtKg(kg)} kg · ${fmtLong(date)}`);
     onClose();
@@ -79,8 +79,8 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }: QuickL
     await doSave(kg);
   };
   const del = async () => {
-    if (busy) return;
-    try { await run(() => repo.deleteWeight(uid, entryId!)); } catch { return; }
+    if (busy || !entryId) return;
+    try { await run(() => repo.deleteWeight(uid, entryId)); } catch { return; }
     onSaved('Entry deleted');
     onClose();
   };
@@ -157,8 +157,8 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }: QuickL
 }
 
 export function QuickLogProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const { data: weights } = useWeights(user?.uid);
+  const user = useAuthedUser();
+  const { data: weights } = useWeights(user.uid);
   const [state, setState] = useState<{ entry?: QuickLogEntry } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const open = (e?: QuickLogEntry) => setState({ entry: e });
@@ -168,7 +168,7 @@ export function QuickLogProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ open }}>
       {children}
-      {state && user && (
+      {state && (
         <QuickLogModal entry={state.entry} uid={user.uid} lastKg={lastKg} weights={weights} onClose={() => setState(null)} onSaved={onSaved} />
       )}
       {toast && <Toast>{toast}</Toast>}

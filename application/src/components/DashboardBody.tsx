@@ -183,9 +183,9 @@ function Wins({ dashboard, focusId, notes, canAdd }: WinsProps) {
     } catch { return; }
     setText(''); setAdding(false);
   };
-  const confirmDelete = async () => {
+  const confirmDelete = async (target: Nsv) => {
     try {
-      await runDelete(() => repo.deleteNsv(dashboard.id, deleteTarget!.id));
+      await runDelete(() => repo.deleteNsv(dashboard.id, target.id));
     } catch { return; }
     setDeleteTarget(null);
   };
@@ -225,7 +225,7 @@ function Wins({ dashboard, focusId, notes, canAdd }: WinsProps) {
         <Confirm
           title="Delete this win?" message={`“${deleteTarget.text}” will be removed.`}
           confirmLabel="Delete" danger busy={deleteBusy} error={deleteError}
-          onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)} onConfirm={() => confirmDelete(deleteTarget)}
         />
       )}
     </div>
@@ -253,7 +253,8 @@ interface DashboardBodyProps {
   series?: Record<string, SeriesPoint[]>;
   habitLogs?: Record<string, Record<string, HabitLog>>;
   nsv?: Record<string, Nsv[]>;
-  meUid: string;
+  // Null in the public read-only view, where there is no signed-in "me".
+  meUid: string | null;
   readOnly?: boolean;
   onEditGoals?: () => void;
   profiles?: Record<string, Profile>;
@@ -281,7 +282,7 @@ export default function DashboardBody({ dashboard, series = {}, habitLogs = {}, 
           <p className="t2">Add your first weigh-in to start the trend — it fills in from there.</p>
           {!readOnly && <button className="btn primary" onClick={() => quick.open()}><Icon name="plus" color="#fff" />Log my weight</button>}
         </div>
-        <HabitsSection dashboard={dashboard} members={trackedMembers} logs={habitLogs} meUid={meUid} readOnly={readOnly} />
+        <HabitsSection dashboard={dashboard} members={trackedMembers} logs={habitLogs} meUid={meUid ?? ''} readOnly={readOnly} />
       </>
     );
   }
@@ -353,7 +354,7 @@ export default function DashboardBody({ dashboard, series = {}, habitLogs = {}, 
         </div>
       </div>
 
-      <HabitsSection dashboard={dashboard} members={trackedMembers} logs={habitLogs} meUid={meUid} readOnly={readOnly} />
+      <HabitsSection dashboard={dashboard} members={trackedMembers} logs={habitLogs} meUid={meUid ?? ''} readOnly={readOnly} />
     </>
   );
 }

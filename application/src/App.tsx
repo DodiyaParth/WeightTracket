@@ -10,7 +10,7 @@ import PublicView from './pages/PublicView.jsx';
 import NotFound from './pages/NotFound.jsx';
 import ProtectedRoute from './auth/ProtectedRoute.jsx';
 import Splash from './components/Splash.jsx';
-import { useAuth } from './auth/AuthContext.jsx';
+import { useAuthedUser } from './auth/useAuthedUser.js';
 import { useDashboards } from './hooks/useData.js';
 import { landingRoute } from './lib/dashboards.js';
 
@@ -18,13 +18,13 @@ import { landingRoute } from './lib/dashboards.js';
 // jump to the most-recently-active dashboard (collaboration first); otherwise show
 // the dashboards list. Subsequent visits to "/" always show the list.
 function Landing() {
-  const { user } = useAuth();
-  const { data: dashboards, loading } = useDashboards(user?.uid);
+  const user = useAuthedUser();
+  const { data: dashboards, loading } = useDashboards(user.uid);
   const nav = useNavigate();
   const [decided, setDecided] = useState(false);
 
   useEffect(() => {
-    if (loading || decided || !user) return;
+    if (loading || decided) return;
     // Keyed to this uid (DEV-36), not a flat flag — so switching accounts in
     // the same tab always re-evaluates landing for whoever's actually signed
     // in now, rather than trusting a state left over from a previous user.
@@ -33,7 +33,7 @@ function Landing() {
     try { landed = sessionStorage.getItem(key) === '1'; } catch { /* ignore */ }
     if (!landed) {
       try { sessionStorage.setItem(key, '1'); } catch { /* ignore */ }
-      const route = landingRoute(dashboards || [], user?.uid);
+      const route = landingRoute(dashboards || [], user.uid);
       if (route !== '/') { nav(route, { replace: true }); return; }
     }
     setDecided(true);

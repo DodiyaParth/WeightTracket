@@ -4,7 +4,7 @@ import Icon from '../components/Icon.jsx';
 import { Confirm } from '../components/Modal.jsx';
 import { RetryCard, SegRadio } from '../components/ui.jsx';
 import { useQuickLog } from '../components/QuickLog.jsx';
-import { useAuth } from '../auth/AuthContext.jsx';
+import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useWeights } from '../hooks/useData.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { repo } from '../data/repo.js';
@@ -12,7 +12,7 @@ import { todayISO, fmtLong } from '../lib/date.js';
 import { fmtKg } from '../lib/format.js';
 import type { WeightEntry } from '../types.js';
 
-const VIEW_OPTIONS = [['list', 'List'], ['calendar', 'Calendar']];
+const VIEW_OPTIONS: [string, string][] = [['list', 'List'], ['calendar', 'Calendar']];
 
 const monthKey = (dateIso: string) => dateIso.slice(0, 7);
 const monthLabel = (key: string) => {
@@ -30,8 +30,9 @@ function ListView({ entries, onEdit, onDelete }: { entries: WeightEntry[]; onEdi
     const m = new Map<string, WeightEntry[]>();
     entries.forEach((e) => {
       const k = monthKey(e.date);
-      if (!m.has(k)) m.set(k, []);
-      m.get(k)!.push(e);
+      let bucket = m.get(k);
+      if (!bucket) { bucket = []; m.set(k, bucket); }
+      bucket.push(e);
     });
     return Array.from(m.entries());
   }, [entries]);
@@ -99,8 +100,8 @@ function CalendarView({ byDate, month, onMonth, onDay }: { byDate: Map<string, W
 }
 
 export default function History() {
-  const { user } = useAuth();
-  const { data: entries, loading, error, reload } = useWeights(user?.uid);
+  const user = useAuthedUser();
+  const { data: entries, loading, error, reload } = useWeights(user.uid);
   const quick = useQuickLog();
   const [view, setView] = useState('list');
   const [month, setMonth] = useState(() => monthKey(todayISO()));
@@ -108,8 +109,8 @@ export default function History() {
   const { run: runDelete, busy: deleting, error: deleteError } = useAsyncAction();
 
   const byDate = useMemo(() => new Map((entries || []).map((e): [string, WeightEntry] => [e.date, e])), [entries]);
-  const confirmDelete = async () => {
-    try { await runDelete(() => repo.deleteWeight(user!.uid, del!.id)); } catch { return; }
+  const confirmDelete = async (entry: WeightEntry) => {
+    try { await runDelete(() => repo.deleteWeight(user.uid, entry.id)); } catch { return; }
     setDel(null);
   };
 
@@ -138,7 +139,7 @@ export default function History() {
           title="Delete this entry?"
           message={`${fmtKg(del.kg)} kg on ${fmtLong(del.date)} will be removed from your history. This can’t be undone.`}
           confirmLabel="Delete" danger busy={deleting} error={deleteError}
-          onCancel={() => setDel(null)} onConfirm={confirmDelete}
+          onCancel={() => setDel(null)} onConfirm={() => confirmDelete(del)}
         />
       )}
     </Layout>

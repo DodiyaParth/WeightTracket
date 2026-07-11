@@ -4,6 +4,7 @@ import Icon, { Logo } from './Icon.jsx';
 import UserAvatar from './UserAvatar.jsx';
 import { useQuickLog } from './QuickLog.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useDashboards, useNotifications } from '../hooks/useData.js';
 import { recents, isEditable, colorForMember } from '../lib/dashboards.js';
 import { firstNameOf } from '../lib/user.js';
@@ -12,10 +13,11 @@ import { fmtDate } from '../lib/date.js';
 function Sidebar() {
   const nav = useNavigate();
   const loc = useLocation();
-  const { user, signOutUser } = useAuth();
-  const { data: dashboards } = useDashboards(user?.uid);
+  const { signOutUser } = useAuth();
+  const user = useAuthedUser();
+  const { data: dashboards } = useDashboards(user.uid);
   const activeId = (loc.pathname.match(/^\/dashboard\/([^/]+)/) || [])[1];
-  const rec = recents(dashboards || [], user?.uid);
+  const rec = recents(dashboards || [], user.uid);
 
   return (
     <aside className="sidebar">
@@ -30,7 +32,7 @@ function Sidebar() {
         <div className="recents">
           {rec.length === 0 && <div className="recent-item recent-all" style={{ borderLeftColor: 'transparent', cursor: 'default' }}>No dashboards yet</div>}
           {rec.map((d) => {
-            const view = !isEditable(d, user?.uid);
+            const view = !isEditable(d, user.uid);
             const dot = view ? 'var(--muted)' : colorForMember(d, d.trackedUids?.[0]);
             return (
               <NavLink key={d.id} to={`/dashboard/${d.id}`} className={'recent-item' + (d.id === activeId ? ' active' : '')}>
@@ -51,8 +53,8 @@ function Sidebar() {
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nav('/profile'); } }}>
         <UserAvatar user={user} size={38} />
         <div className="col" style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-          <span className="name">{user?.displayName || firstNameOf(null, user?.email)}</span>
-          <span className="sub" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</span>
+          <span className="name">{user.displayName || firstNameOf(null, user.email)}</span>
+          <span className="sub" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</span>
         </div>
         <button className="icon-btn ghost-ib" style={{ width: 32, height: 32 }} title="Sign out" aria-label="Sign out"
           onClick={(e) => { e.stopPropagation(); signOutUser(); }}>
@@ -64,8 +66,8 @@ function Sidebar() {
 }
 
 function Bell() {
-  const { user } = useAuth();
-  const { data: notifications } = useNotifications(user?.uid);
+  const user = useAuthedUser();
+  const { data: notifications } = useNotifications(user.uid);
   const [open, setOpen] = useState(false);
   const list = notifications || [];
   const unread = list.filter((n) => n.unread).length;

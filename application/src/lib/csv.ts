@@ -10,7 +10,7 @@ export interface ParsedCsv {
   hasHeader: boolean;
 }
 
-export function parseCsv(text: unknown): ParsedCsv {
+export function parseCsv(text: string): ParsedCsv {
   const res = Papa.parse<string[]>(String(text).trim(), { skipEmptyLines: true });
   const rows = res.data.filter((r) => r.some((c) => String(c).trim() !== ''));
   if (!rows.length) return { header: [], rows: [], hasHeader: false };
@@ -22,11 +22,11 @@ export function parseCsv(text: unknown): ParsedCsv {
     rows: hasHeader ? rows.slice(1) : rows, hasHeader };
 }
 
-const looksLikeWeight = (c: unknown): boolean => {
+const looksLikeWeight = (c: string): boolean => {
   const n = parseWeightValue(c);
   return !Number.isNaN(n) && n >= 20 && n <= 400;
 };
-const looksLikeDate = (c: unknown): boolean => /\d/.test(String(c)) && (/[\/\-.]/.test(String(c)) || /[A-Za-z]/.test(String(c)));
+const looksLikeDate = (c: string): boolean => /\d/.test(String(c)) && (/[\/\-.]/.test(String(c)) || /[A-Za-z]/.test(String(c)));
 
 export interface DetectedColumns {
   dateIdx: number;
@@ -62,7 +62,7 @@ export function suggestDateFormat(rows: string[][], dateIdx: number): string {
 // `,` appear, whichever comes LAST in the string is the decimal separator.
 // Genuinely ambiguous input (more than one of each) is rejected as NaN rather
 // than guessed.
-export function parseWeightValue(raw: unknown): number {
+export function parseWeightValue(raw: string | number): number {
   let s = String(raw).trim().replace(/[^0-9.,\-]/g, '');
   if (!/\d/.test(s)) return NaN;
   const dots = (s.match(/\./g) || []).length;

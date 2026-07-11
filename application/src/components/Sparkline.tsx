@@ -1,6 +1,6 @@
 // Tiny SVG trend line for dashboard cards.
 interface SparklineProps {
-  data?: number[] | null;
+  data?: number[];
   color?: string;
   w?: number;
   h?: number;

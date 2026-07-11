@@ -4,18 +4,20 @@ import Icon from '../components/Icon.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import { Toast } from '../components/ui.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useProfile } from '../hooks/useData.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { repo } from '../data/repo.js';
 
 export default function Profile() {
-  const { user, signOutUser } = useAuth();
-  const { data: profile } = useProfile(user?.uid);
+  const { signOutUser } = useAuth();
+  const user = useAuthedUser();
+  const { data: profile } = useProfile(user.uid);
   const [name, setName] = useState('');
   const [height, setHeight] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const { run, busy, error } = useAsyncAction();
-  const signedInWithGoogle = user?.providerData?.[0]?.providerId === 'google.com';
+  const signedInWithGoogle = user.providerData?.[0]?.providerId === 'google.com';
 
   useEffect(() => {
     if (profile) { setName(profile.name || ''); setHeight(profile.heightM ? String(profile.heightM) : ''); }
@@ -23,7 +25,7 @@ export default function Profile() {
 
   const save = async () => {
     try {
-      await run(() => repo.updateProfile(user!.uid, { name: name.trim() || 'You', heightM: height ? +height : null }));
+      await run(() => repo.updateProfile(user.uid, { name: name.trim() || 'You', heightM: height ? +height : null }));
     } catch { return; }
     setToast('Profile saved');
     setTimeout(() => setToast(null), 2200);
@@ -34,10 +36,10 @@ export default function Profile() {
       <div className="col" style={{ gap: 24, maxWidth: 680, width: '100%' }}>
         <div className="card">
           <div className="row" style={{ gap: 16 }}>
-            <UserAvatar user={{ ...user, photoURL: profile?.photoURL || user?.photoURL }} size={64} color={profile?.color || 'var(--accent)'} />
+            <UserAvatar user={{ ...user, photoURL: profile?.photoURL || user.photoURL }} size={64} color={profile?.color || 'var(--accent)'} />
             <div className="col" style={{ gap: 4 }}>
-              <span style={{ fontSize: 18, fontWeight: 600 }}>{profile?.name || user?.displayName}</span>
-              <span className="muted small">{user?.email}{signedInWithGoogle ? ' · signed in with Google' : ' · signed in with email'}</span>
+              <span style={{ fontSize: 18, fontWeight: 600 }}>{profile?.name || user.displayName}</span>
+              <span className="muted small">{user.email}{signedInWithGoogle ? ' · signed in with Google' : ' · signed in with email'}</span>
               <span className="pill gray" style={{ marginTop: 6, alignSelf: 'flex-start' }}>Your personal account</span>
             </div>
           </div>

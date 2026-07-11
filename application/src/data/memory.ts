@@ -219,9 +219,8 @@ export const listOutgoing = (dashboardId: string): Promise<Invite[]> =>
   ok(clone(store.invites.filter((i) => i.dashboardId === dashboardId)));
 
 export function createInvite(dashboardId: string, { fromUid, fromName, toEmail, role }: { fromUid: string; fromName: string; toEmail: string; role?: Role }): Promise<Invite> {
-  const inv: Invite = { id: rid('inv'), dashboardId, fromUid, fromName, fromInitial: initials(fromName), toEmail, role: role || 'editor', status: 'pending', createdAt: Date.now() };
   const d = store.dashboards.find((x) => x.id === dashboardId);
-  inv.dashboardName = d?.name || 'a dashboard';
+  const inv: Invite = { id: rid('inv'), dashboardId, dashboardName: d?.name || 'a dashboard', fromUid, fromName, fromInitial: initials(fromName), toEmail, role: role || 'editor', status: 'pending', createdAt: Date.now() };
   store.invites.push(inv);
   changed();
   return ok(clone(inv));
@@ -237,7 +236,7 @@ export function acceptInvite(inviteId: string, authUser: AuthUser): Promise<void
     // our account too. The inviter's own profile (name/photo/height) is
     // whatever's already in store.profiles — nothing to copy here.
     d = {
-      id: inv.dashboardId, name: inv.dashboardName as string, ownerUid: inv.fromUid, createdAt: Date.now(), updatedAt: Date.now(),
+      id: inv.dashboardId, name: inv.dashboardName, ownerUid: inv.fromUid, createdAt: Date.now(), updatedAt: Date.now(),
       members: { [inv.fromUid]: { uid: inv.fromUid, role: 'owner', joinedAt: Date.now() } },
       trackedUids: [inv.fromUid], goals: {}, teamGoal: null, habits: [], public: { enabled: false, token: null },
     };

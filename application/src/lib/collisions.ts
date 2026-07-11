@@ -18,8 +18,8 @@ export interface ClassifiedEntries<T extends SeriesPoint> {
 // Returns { fresh, unchanged, conflicting } — unchanged/conflicting entries are
 // annotated with prevKg (the existing value) for messaging.
 export function classifyEntries<T extends SeriesPoint>(
-  incoming?: T[] | null,
-  existing?: SeriesPoint[] | null,
+  incoming?: T[],
+  existing?: SeriesPoint[],
 ): ClassifiedEntries<T> {
   const byDate = new Map<string, SeriesPoint>((existing || []).map((e): [string, SeriesPoint] => [e.date, e]));
   const fresh: T[] = [];

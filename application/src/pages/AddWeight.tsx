@@ -5,7 +5,7 @@ import Icon from '../components/Icon.jsx';
 import Modal, { Confirm } from '../components/Modal.jsx';
 import { Toast } from '../components/ui.jsx';
 import { useQuickLog } from '../components/QuickLog.jsx';
-import { useAuth } from '../auth/AuthContext.jsx';
+import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useWeights } from '../hooks/useData.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { repo } from '../data/repo.js';
@@ -218,14 +218,14 @@ function Bulk({ uid, existing, onToast }: TabProps) {
         <thead><tr><th>Date</th><th>Weight (kg)</th><th>Note</th></tr></thead>
         <tbody>
           {rows.map((r) => {
-            const invalid = r.kg && Number.isNaN(weightOf(r));
+            const invalid = !!r.kg && Number.isNaN(weightOf(r));
             return (
               <tr key={r.id}>
                 <td style={{ width: 130 }}>{fmtLong(r.date)}</td>
                 <td style={{ width: 150 }}>
                   <input className="input" inputMode="decimal" placeholder="—" value={r.kg} disabled={busy}
                     style={invalid ? { borderColor: 'var(--rose)' } : undefined}
-                    aria-invalid={invalid as boolean} onChange={(e) => setRow(r.id, { kg: e.target.value })} />
+                    aria-invalid={invalid} onChange={(e) => setRow(r.id, { kg: e.target.value })} />
                   {invalid && <span className="small" style={{ color: 'var(--rose)' }}>Not a number</span>}
                 </td>
                 <td><input className="input" placeholder="—" value={r.note} disabled={busy} onChange={(e) => setRow(r.id, { note: e.target.value })} /></td>
@@ -307,10 +307,12 @@ function Csv({ uid, existing, onToast }: TabProps) {
     );
   }
 
-  const preview = sameCol ? [] : (parsed?.rows || []).slice(0, 6).map((r) => {
-    const rawDate = r[cols!.dateIdx];
+  if (!parsed || !cols) return null;
+
+  const preview = sameCol ? [] : parsed.rows.slice(0, 6).map((r) => {
+    const rawDate = r[cols.dateIdx];
     const date = parseDate(rawDate, fmt);
-    const kgNum = parseWeightValue(r[cols!.weightIdx]);
+    const kgNum = parseWeightValue(r[cols.weightIdx]);
     const okKg = !Number.isNaN(kgNum) && kgNum >= 20 && kgNum <= 400;
     const reason = !date ? 'can’t parse date' : !okKg ? 'invalid weight' : null;
     return { rawDate, date, kg: okKg ? +kgNum.toFixed(2) : null, ok: !!date && okKg, reason };
@@ -319,23 +321,23 @@ function Csv({ uid, existing, onToast }: TabProps) {
   return (
     <div className="card">
       <div className="section-head"><span className="card-title">Review import</span><button className="btn ghost sm" onClick={() => { setRaw(null); setFileName(''); }}><Icon name="close" size={16} color="var(--text-2)" />Replace file</button></div>
-      <div className="csv-file" style={{ marginTop: 12 }}><Icon name="upload" color="var(--accent-dark)" /><div className="grow"><div className="name">{fileName}</div><div className="muted small">{parsed!.rows.length} rows detected</div></div><span className="pill">Auto-detected</span></div>
+      <div className="csv-file" style={{ marginTop: 12 }}><Icon name="upload" color="var(--accent-dark)" /><div className="grow"><div className="name">{fileName}</div><div className="muted small">{parsed.rows.length} rows detected</div></div><span className="pill">Auto-detected</span></div>
       <div className="grid-2" style={{ marginTop: 16 }}>
         <div>
           <label className="field-label">Date column</label>
-          <select className="input" value={cols!.dateIdx} onChange={(e) => setColOverride({ dateIdx: +e.target.value, weightIdx: cols!.weightIdx })}>
-            {parsed!.header.map((h, i) => <option key={i} value={i}>{h}</option>)}
+          <select className="input" value={cols.dateIdx} onChange={(e) => setColOverride({ dateIdx: +e.target.value, weightIdx: cols.weightIdx })}>
+            {parsed.header.map((h, i) => <option key={i} value={i}>{h}</option>)}
           </select>
         </div>
         <div>
           <label className="field-label">Weight column</label>
-          <select className="input" value={cols!.weightIdx} onChange={(e) => setColOverride({ dateIdx: cols!.dateIdx, weightIdx: +e.target.value })}>
-            {parsed!.header.map((h, i) => <option key={i} value={i}>{h}</option>)}
+          <select className="input" value={cols.weightIdx} onChange={(e) => setColOverride({ dateIdx: cols.dateIdx, weightIdx: +e.target.value })}>
+            {parsed.header.map((h, i) => <option key={i} value={i}>{h}</option>)}
           </select>
         </div>
       </div>
       {sameCol && <div className="row-warn" style={{ marginTop: 12 }}><Icon name="warn" size={16} color="#b9742a" />Pick different columns for date and weight.</div>}
-      {!sameCol && (
+      {!sameCol && result && (
         <>
           <label className="field-label" style={{ marginTop: 16 }}>Date format <span className="muted" style={{ fontWeight: 400 }}>· detected {labelFor(detectedFmt)} — confirm or override</span></label>
           <div className="fmt-opts">{DATE_FORMATS.map(([k, l]) => (<button key={k} className={'toggle' + (fmt === k ? ' on' : '')} onClick={() => setFmtOverride(k)}><span style={{ width: 8, height: 8, borderRadius: 8, background: fmt === k ? 'var(--accent)' : 'var(--muted)' }} />{l}</button>))}</div>
@@ -351,10 +353,10 @@ function Csv({ uid, existing, onToast }: TabProps) {
               </tr>
             ))}</tbody>
           </table>
-          {result!.duplicates > 0 && <div className="row-warn" style={{ marginTop: 12 }}><Icon name="warn" size={16} color="#b9742a" />{result!.duplicates} repeated date{result!.duplicates > 1 ? 's were' : ' was'} merged — the last value in the file wins.</div>}
-          {result!.bad.length > 0 && <div className="row-warn" style={{ marginTop: 12 }}><Icon name="warn" size={16} color="#b9742a" />{result!.bad.length} row{result!.bad.length > 1 ? 's' : ''} couldn’t be imported. Fix the file or change the date format above.</div>}
+          {result.duplicates > 0 && <div className="row-warn" style={{ marginTop: 12 }}><Icon name="warn" size={16} color="#b9742a" />{result.duplicates} repeated date{result.duplicates > 1 ? 's were' : ' was'} merged — the last value in the file wins.</div>}
+          {result.bad.length > 0 && <div className="row-warn" style={{ marginTop: 12 }}><Icon name="warn" size={16} color="#b9742a" />{result.bad.length} row{result.bad.length > 1 ? 's' : ''} couldn’t be imported. Fix the file or change the date format above.</div>}
           {error && <p className="small" style={{ color: 'var(--rose)', marginTop: 12 }}>{error}</p>}
-          <div className="row" style={{ marginTop: 16, alignItems: 'center' }}><span className="muted small">{result!.total} rows · {result!.ready} ready · {result!.bad.length} need attention</span><div style={{ flex: 1 }} /><button className="btn primary" onClick={doImport} disabled={!result!.ready || busy}>{busy ? 'Importing…' : `Import ${result!.ready} entries`}</button></div>
+          <div className="row" style={{ marginTop: 16, alignItems: 'center' }}><span className="muted small">{result.total} rows · {result.ready} ready · {result.bad.length} need attention</span><div style={{ flex: 1 }} /><button className="btn primary" onClick={doImport} disabled={!result.ready || busy}>{busy ? 'Importing…' : `Import ${result.ready} entries`}</button></div>
         </>
       )}
       <BatchCollisionDialog batch={batch} busy={busy} error={error} onOverwrite={overwrite} onSkip={skip} />
@@ -365,16 +367,16 @@ function Csv({ uid, existing, onToast }: TabProps) {
 const labelFor = (k: string) => (DATE_FORMATS.find(([key]) => key === k) || [, k])[1];
 
 export default function AddWeight() {
-  const { user } = useAuth();
-  const { data: entries } = useWeights(user?.uid);
+  const user = useAuthedUser();
+  const { data: entries } = useWeights(user.uid);
   const [tab, setTab] = useState('single');
   const [del, setDel] = useState<WeightEntry | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const quick = useQuickLog();
   const { run: runDelete, busy: deleting, error: deleteError } = useAsyncAction();
   const onToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2400); };
-  const confirmDelete = async () => {
-    try { await runDelete(() => repo.deleteWeight(user!.uid, del!.id)); } catch { return; }
+  const confirmDelete = async (entry: WeightEntry) => {
+    try { await runDelete(() => repo.deleteWeight(user.uid, entry.id)); } catch { return; }
     setDel(null);
     onToast('Entry deleted');
   };
@@ -388,9 +390,9 @@ export default function AddWeight() {
       </div>
       <div className="addweight-grid">
         <div>
-          {tab === 'single' && <Single uid={user!.uid} existing={entries || []} onToast={onToast} />}
-          {tab === 'bulk' && <Bulk uid={user!.uid} existing={entries || []} onToast={onToast} />}
-          {tab === 'csv' && <Csv uid={user!.uid} existing={entries || []} onToast={onToast} />}
+          {tab === 'single' && <Single uid={user.uid} existing={entries || []} onToast={onToast} />}
+          {tab === 'bulk' && <Bulk uid={user.uid} existing={entries || []} onToast={onToast} />}
+          {tab === 'csv' && <Csv uid={user.uid} existing={entries || []} onToast={onToast} />}
         </div>
         <div className="card" style={{ alignSelf: 'start' }}>
           <div className="row between" style={{ marginBottom: 8 }}>
@@ -416,7 +418,7 @@ export default function AddWeight() {
           title="Delete this entry?"
           message={`${fmtKg(del.kg)} kg on ${fmtLong(del.date)} will be removed from your history. This can’t be undone.`}
           confirmLabel="Delete" danger busy={deleting} error={deleteError}
-          onCancel={() => setDel(null)} onConfirm={confirmDelete}
+          onCancel={() => setDel(null)} onConfirm={() => confirmDelete(del)}
         />
       )}
       {toast && <Toast>{toast}</Toast>}

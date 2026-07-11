@@ -60,15 +60,15 @@ function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, onAddHa
 
   const startEdit = (h: Habit) => { setEditingId(h.id); setEditLabel(h.label); };
   const saveEdit = async () => {
-    if (!editLabel.trim()) { setEditingId(null); return; }
+    if (!editLabel.trim() || !editingId) { setEditingId(null); return; }
     try {
-      await runEdit(() => onRename(editingId!, editLabel.trim()));
+      await runEdit(() => onRename(editingId, editLabel.trim()));
     } catch { return; }
     setEditingId(null);
   };
-  const confirmDelete = async () => {
+  const confirmDelete = async (target: Habit) => {
     try {
-      await runDelete(() => onDelete(deleteTarget!.id));
+      await runDelete(() => onDelete(target.id));
     } catch { return; }
     setDeleteTarget(null);
   };
@@ -127,7 +127,7 @@ function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, onAddHa
         <Confirm
           title="Delete this habit?" message={`“${deleteTarget.label}” and its streak history will be removed for everyone on this dashboard.`}
           confirmLabel="Delete" danger busy={deleteBusy} error={deleteError}
-          onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)} onConfirm={() => confirmDelete(deleteTarget)}
         />
       )}
     </div>

@@ -9,7 +9,7 @@ import ShareModal from '../components/ShareModal.jsx';
 import { RetryCard } from '../components/ui.jsx';
 import { Confirm } from '../components/Modal.jsx';
 import { useQuickLog } from '../components/QuickLog.jsx';
-import { useAuth } from '../auth/AuthContext.jsx';
+import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { repo } from '../data/repo.js';
 import { useDashboard, useDashboardSeries, useHabitLogs, useNsv, useProfiles } from '../hooks/useData.js';
@@ -19,7 +19,7 @@ import { errorCode } from '../lib/errors.js';
 export default function DashboardDetail() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { user } = useAuth();
+  const user = useAuthedUser();
   const quick = useQuickLog();
   const { data: d, loading, error, reload } = useDashboard(id);
   const { data: series } = useDashboardSeries(id);
@@ -53,12 +53,12 @@ export default function DashboardDetail() {
     );
   }
 
-  const editable = isEditable(d, user?.uid);
+  const editable = isEditable(d, user.uid);
   const members = memberList(d, profiles || {});
-  const isOwner = d.ownerUid === user?.uid;
+  const isOwner = d.ownerUid === user.uid;
 
   const confirmLeave = async () => {
-    try { await runLeave(() => repo.removeMember(d.id, user!.uid)); } catch { return; }
+    try { await runLeave(() => repo.removeMember(d.id, user.uid)); } catch { return; }
     setLeaving(false);
     nav('/');
   };
@@ -94,13 +94,13 @@ export default function DashboardDetail() {
         series={series || {}}
         habitLogs={habitLogs || {}}
         nsv={nsv || {}}
-        meUid={user!.uid}
+        meUid={user.uid}
         readOnly={!editable}
         onEditGoals={() => setModal('goals')}
         profiles={profiles || {}}
       />
       {modal === 'goals' && <GoalEditor dashboard={d} series={series || {}} profiles={profiles || {}} onClose={() => setModal(null)} />}
-      {modal === 'settings' && <DashSettings dashboard={d} profiles={profiles || {}} meUid={user!.uid} onClose={() => setModal(null)} onEditGoals={() => setModal('goals')} onManageSharing={() => setModal('share')} />}
+      {modal === 'settings' && <DashSettings dashboard={d} profiles={profiles || {}} meUid={user.uid} onClose={() => setModal(null)} onEditGoals={() => setModal('goals')} onManageSharing={() => setModal('share')} />}
       {modal === 'share' && <ShareModal dashboard={d} profiles={profiles || {}} onClose={() => setModal(null)} />}
       {leaving && (
         <Confirm

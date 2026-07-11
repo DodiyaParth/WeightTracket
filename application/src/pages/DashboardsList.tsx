@@ -6,7 +6,7 @@ import { RoleBadge, ChangeText, RetryCard } from '../components/ui.jsx';
 import { Confirm } from '../components/Modal.jsx';
 import Sparkline from '../components/Sparkline.jsx';
 import CreateDashboard from '../components/CreateDashboard.jsx';
-import { useAuth } from '../auth/AuthContext.jsx';
+import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useDashboards, useInvites, useDashboardSeries, useProfiles } from '../hooks/useData.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { repo } from '../data/repo.js';
@@ -70,9 +70,9 @@ function Invites({ invites, user }: { invites: Invite[] | undefined; user: AuthU
       setBusyId(null);
     }
   };
-  const confirmDecline = async () => {
+  const confirmDecline = async (inv: Invite) => {
     try {
-      await runDecline(() => repo.declineInvite(decliningInv!.id));
+      await runDecline(() => repo.declineInvite(inv.id));
       setDecliningInv(null);
     } catch { /* surfaced via declineError */ }
   };
@@ -100,7 +100,7 @@ function Invites({ invites, user }: { invites: Invite[] | undefined; user: AuthU
         <Confirm
           title="Decline this invite?" message={`You won’t join “${decliningInv.dashboardName}”. ${decliningInv.fromName} can invite you again later.`}
           confirmLabel="Decline" danger busy={declineBusy} error={declineError}
-          onCancel={() => setDecliningInv(null)} onConfirm={confirmDecline}
+          onCancel={() => setDecliningInv(null)} onConfirm={() => confirmDecline(decliningInv)}
         />
       )}
     </div>
@@ -125,13 +125,13 @@ function ListSkeleton() {
 
 export default function DashboardsList() {
   const nav = useNavigate();
-  const { user } = useAuth();
-  const { data: dashboards, loading, error, reload } = useDashboards(user?.uid);
-  const { data: invites } = useInvites(user?.email);
+  const user = useAuthedUser();
+  const { data: dashboards, loading, error, reload } = useDashboards(user.uid);
+  const { data: invites } = useInvites(user.email);
   const [creating, setCreating] = useState(false);
 
-  const collab = collaborating(dashboards || [], user?.uid);
-  const views = viewOnly(dashboards || [], user?.uid);
+  const collab = collaborating(dashboards || [], user.uid);
+  const views = viewOnly(dashboards || [], user.uid);
   const empty = !loading && !error && collab.length === 0 && views.length === 0;
 
   return (
@@ -152,7 +152,7 @@ export default function DashboardsList() {
         <RetryCard title="Couldn’t load your dashboards" message="Check your connection and try again." onRetry={reload} />
       )}
 
-      <Invites invites={invites} user={user!} />
+      <Invites invites={invites} user={user} />
 
       {empty && (
         <div className="empty">
@@ -168,7 +168,7 @@ export default function DashboardsList() {
           <div className="col" style={{ gap: 14 }}>
             <div className="section-head"><h2>Collaborating</h2><span className="muted small">You can edit shared goals &amp; habits — everyone logs their own weight</span></div>
             <div className="grid-3">
-              {collab.map((d) => <DashCard key={d.id} d={d} uid={user?.uid} onOpen={() => nav(`/dashboard/${d.id}`)} />)}
+              {collab.map((d) => <DashCard key={d.id} d={d} uid={user.uid} onOpen={() => nav(`/dashboard/${d.id}`)} />)}
               <div className="card create-card" role="button" tabIndex={0} aria-label="Create new dashboard" onClick={() => setCreating(true)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCreating(true); } }} style={{ cursor: 'pointer' }}>
                 <span className="ci"><Icon name="plus" color="var(--accent-dark)" /></span>
@@ -179,7 +179,7 @@ export default function DashboardsList() {
           {views.length > 0 && (
             <div className="col" style={{ gap: 14 }}>
               <div className="section-head"><h2>View only</h2><span className="muted small">Shared with you to follow — read only</span></div>
-              <div className="grid-3">{views.map((d) => <DashCard key={d.id} d={d} uid={user?.uid} onOpen={() => nav(`/dashboard/${d.id}`)} />)}</div>
+              <div className="grid-3">{views.map((d) => <DashCard key={d.id} d={d} uid={user.uid} onOpen={() => nav(`/dashboard/${d.id}`)} />)}</div>
             </div>
           )}
         </>

@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import Modal, { Confirm } from './Modal.jsx';
 import Icon, { Avatar } from './Icon.jsx';
 import { RoleBadge, SegRadio, Toggle } from './ui.jsx';
-import { useAuth } from '../auth/AuthContext.jsx';
+import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useAsync } from '../hooks/useData.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
 import { repo } from '../data/repo.js';
 import { memberList } from '../lib/dashboards.js';
 import type { Dashboard, Invite, Profile, Role } from '../types.js';
 
-const ROLE_OPTIONS = [['editor', 'Can edit'], ['viewer', 'Read only']];
+const ROLE_OPTIONS: [Role, string][] = [['editor', 'Can edit'], ['viewer', 'Read only']];
 
 interface ShareModalProps {
   dashboard: Dashboard;
@@ -20,11 +20,11 @@ interface ShareModalProps {
 
 export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareModalProps) {
   const nav = useNavigate();
-  const { user } = useAuth();
+  const user = useAuthedUser();
   const d = dashboard;
   const { data: outgoing } = useAsync(() => repo.listOutgoing(d.id), [d.id]);
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('editor');
+  const [role, setRole] = useState<Role>('editor');
   const [copied, setCopied] = useState(false);
   const [revoke, setRevoke] = useState(false);
   const { run: runInvite, busy: inviting, error: inviteError } = useAsyncAction();
@@ -36,7 +36,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
   const [confirmCancel, setConfirmCancel] = useState<Invite | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<{ uid: string; name: string } | null>(null);
   const linkOn = !!d.public?.enabled;
-  const iAmOwner = d.ownerUid === user?.uid;
+  const iAmOwner = d.ownerUid === user.uid;
   const members = memberList(d, profiles);
   const pending = (outgoing || []).filter((i) => i.status === 'pending');
 
@@ -46,8 +46,8 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
   // Only the owner may change roles — see firestore.rules DEV-2 (editors can't
   // touch membership). Role changes are field-path updates (DEV-17), so a
   // concurrent join/role-change elsewhere can't clobber this one.
-  const doChangeRole = async () => {
-    const { uid, to } = confirmRole!;
+  const doChangeRole = async (cr: { uid: string; name: string; from: Role; to: Role }) => {
+    const { uid, to } = cr;
     setBusyUid(uid);
     setRowError(null);
     try {
@@ -60,8 +60,8 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
     }
   };
   // Owner-only (see firestore.rules) — removes someone else from the dashboard.
-  const doRemoveMember = async () => {
-    const { uid } = confirmRemove!;
+  const doRemoveMember = async (cr: { uid: string; name: string }) => {
+    const { uid } = cr;
     setBusyUid(uid);
     setRowError(null);
     try {
@@ -73,8 +73,8 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
       setBusyUid(null);
     }
   };
-  const doCancelInvite = async () => {
-    const id = confirmCancel!.id;
+  const doCancelInvite = async (inv: Invite) => {
+    const id = inv.id;
     setBusyInviteId(id);
     setRowError(null);
     try {
@@ -89,7 +89,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
   const invite = async () => {
     if (!email.trim()) return;
     try {
-      await runInvite(() => repo.createInvite(d.id, { fromUid: user!.uid, fromName: user!.displayName || 'A teammate', toEmail: email.trim(), role: role as Role }));
+      await runInvite(() => repo.createInvite(d.id, { fromUid: user.uid, fromName: user.displayName || 'A teammate', toEmail: email.trim(), role }));
     } catch { return; }
     setEmail('');
   };
@@ -116,7 +116,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
                   <RoleBadge access="owner" />
                 ) : iAmOwner ? (
                   <span className="row" style={{ gap: 8 }}>
-                    <SegRadio value={m.role} disabled={busyUid === m.uid} onChange={(r) => setConfirmRole({ uid: m.uid, name: m.name, from: m.role, to: r as Role })} options={ROLE_OPTIONS} ariaLabel={`${m.name}’s access level`} />
+                    <SegRadio value={m.role} disabled={busyUid === m.uid} onChange={(r) => setConfirmRole({ uid: m.uid, name: m.name, from: m.role, to: r })} options={ROLE_OPTIONS} ariaLabel={`${m.name}’s access level`} />
                     <button className="icon-btn ghost-ib" title={`Remove ${m.name}`} aria-label={`Remove ${m.name}`} disabled={busyUid === m.uid} onClick={() => setConfirmRemove({ uid: m.uid, name: m.name })}>
                       <Icon name="close" size={15} color="var(--muted)" />
                     </button>
@@ -176,21 +176,21 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
         <Confirm
           title="Change access?" message={`${confirmRole.name} will change from ${confirmRole.from === 'editor' ? 'Can edit' : 'Read only'} to ${confirmRole.to === 'editor' ? 'Can edit' : 'Read only'}.`}
           confirmLabel="Change" busy={busyUid === confirmRole.uid} error={rowError}
-          onCancel={() => setConfirmRole(null)} onConfirm={doChangeRole}
+          onCancel={() => setConfirmRole(null)} onConfirm={() => doChangeRole(confirmRole)}
         />
       )}
       {confirmRemove && (
         <Confirm
           title="Remove this member?" message={`${confirmRemove.name} will lose access to “${d.name}”. Their own weight history is unaffected.`}
           confirmLabel="Remove" danger busy={busyUid === confirmRemove.uid} error={rowError}
-          onCancel={() => setConfirmRemove(null)} onConfirm={doRemoveMember}
+          onCancel={() => setConfirmRemove(null)} onConfirm={() => doRemoveMember(confirmRemove)}
         />
       )}
       {confirmCancel && (
         <Confirm
           title="Cancel this invite?" message={`${confirmCancel.toEmail} will no longer be able to accept it.`}
           confirmLabel="Cancel invite" danger busy={busyInviteId === confirmCancel.id} error={rowError}
-          onCancel={() => setConfirmCancel(null)} onConfirm={doCancelInvite}
+          onCancel={() => setConfirmCancel(null)} onConfirm={() => doCancelInvite(confirmCancel)}
         />
       )}
       {revoke && (

@@ -5,7 +5,7 @@ import {
   type ChartOptions, type ChartData, type TooltipItem,
 } from 'chart.js';
 import 'chartjs-adapter-date-fns';
-import annotationPlugin from 'chartjs-plugin-annotation';
+import annotationPlugin, { type AnnotationOptions } from 'chartjs-plugin-annotation';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { trendSeries, SMOOTHING, projection, currentWeight } from '../lib/stats.js';
 import { isoToMs, todayISO, DAY_MS } from '../lib/date.js';
@@ -102,7 +102,7 @@ export default function WeightChart({ people = [], series = {}, focusId, goal, s
     const xMin = rangeKey === 'All' ? minMs : Math.max(minMs, todayMs - days * DAY_MS);
     const xMax = endMs;
 
-    const annotations: Record<string, any> = {
+    const annotations: Record<string, AnnotationOptions> = {
       today: { type: 'line', xMin: todayMs, xMax: todayMs, borderColor: resolve('var(--border-strong)'), borderWidth: 1, borderDash: [3, 3], label: { display: true, content: 'Today', position: 'start', font: { size: 10 }, color: resolve('var(--muted)'), backgroundColor: 'transparent', yAdjust: -6 } },
     };
     if (layers.goal && goal?.targetKg != null) {

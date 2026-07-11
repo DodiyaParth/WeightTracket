@@ -48,13 +48,23 @@ export default function PublicView() {
     );
   }
 
-  // A read-only adapter: the public snapshot carries no ownerUid/createdAt/
-  // updatedAt (they're never exposed on a share link), so shape it to the
-  // Dashboard the render path expects — those fields are unused here.
-  const dashboard = {
-    id: snap.dashboardId, name: snap.name, members: snap.members, trackedUids: snap.trackedUids,
-    goals: snap.goals, teamGoal: snap.teamGoal, habits: snap.habits || [], public: {}, settings: {},
-  } as unknown as Dashboard;
+  // A read-only adapter: the public snapshot never exposes ownerUid/createdAt/
+  // updatedAt or the live share-link record, so fill those with inert defaults
+  // (unused on the read-only render path) to satisfy the Dashboard shape.
+  const dashboard: Dashboard = {
+    id: snap.dashboardId ?? snap.id ?? '',
+    name: snap.name,
+    ownerUid: '',
+    createdAt: 0,
+    updatedAt: 0,
+    members: snap.members,
+    trackedUids: snap.trackedUids,
+    goals: snap.goals,
+    teamGoal: snap.teamGoal,
+    habits: snap.habits || [],
+    public: { enabled: false, token: null },
+    settings: {},
+  };
   const members = memberList(dashboard);
 
   return (
@@ -71,7 +81,7 @@ export default function PublicView() {
       </header>
       <div className="public-body">
         <div className="public-note"><Icon name="eye" size={16} color="var(--accent-dark)" />You’re viewing a shared dashboard. This is read-only — sign in to start your own.</div>
-        <DashboardBody dashboard={dashboard} series={snap.series || {}} habitLogs={snap.habitLogs || {}} nsv={snap.nsv || {}} meUid={null as unknown as string} readOnly />
+        <DashboardBody dashboard={dashboard} series={snap.series || {}} habitLogs={snap.habitLogs || {}} nsv={snap.nsv || {}} meUid={null} readOnly />
       </div>
       <footer className="public-foot"><Logo size={22} /><span className="muted small">Made with WeightTracker · Health guidance here is general information, not medical advice.</span></footer>
     </div>

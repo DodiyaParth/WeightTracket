@@ -83,7 +83,7 @@ export type NsvMap = Record<string, Record<string, Nsv[]>>;
 export interface Invite {
   id: string;
   dashboardId: string;
-  dashboardName?: string;
+  dashboardName: string;
   fromUid: string;
   fromName: string;
   fromInitial?: string;

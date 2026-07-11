@@ -34,28 +34,28 @@ export function useAsync<T>(fn: () => Promise<T> | T, deps: DependencyList = [])
   return { ...state, reload: run };
 }
 
-export const useProfile = (uid?: string | null) =>
+export const useProfile = (uid?: string) =>
   useAsync<Profile | null>(() => (uid ? repo.getProfile(uid) : Promise.resolve(null)), [uid]);
 // Batch-fetches profiles for a set of uids — how dashboard-membership UI joins
 // live name/email/photoURL/heightM against the (deliberately un-denormalized)
 // members map. Keyed by a joined string since arrays are reference-unstable.
-export const useProfiles = (uids?: string[] | null) => {
+export const useProfiles = (uids?: string[]) => {
   const key = (uids || []).join(',');
   return useAsync<Record<string, Profile>>(() => (uids && uids.length ? repo.getProfiles(uids) : Promise.resolve({})), [key]);
 };
-export const useWeights = (uid?: string | null) =>
+export const useWeights = (uid?: string) =>
   useAsync<WeightEntry[]>(() => (uid ? repo.listWeights(uid) : Promise.resolve([])), [uid]);
-export const useDashboards = (uid?: string | null) =>
+export const useDashboards = (uid?: string) =>
   useAsync<Dashboard[]>(() => (uid ? repo.listDashboards(uid) : Promise.resolve([])), [uid]);
-export const useDashboard = (id?: string | null) =>
+export const useDashboard = (id?: string) =>
   useAsync<Dashboard | null>(() => (id ? repo.getDashboard(id) : Promise.resolve(null)), [id]);
-export const useDashboardSeries = (id?: string | null) =>
+export const useDashboardSeries = (id?: string) =>
   useAsync<Record<string, SeriesPoint[]>>(() => (id ? repo.getDashboardSeries(id) : Promise.resolve({})), [id]);
-export const useHabitLogs = (id?: string | null) =>
+export const useHabitLogs = (id?: string) =>
   useAsync<Record<string, Record<string, HabitLog>>>(() => (id ? repo.getHabitLogs(id) : Promise.resolve({})), [id]);
-export const useNsv = (id?: string | null) =>
+export const useNsv = (id?: string) =>
   useAsync<Record<string, Nsv[]>>(() => (id ? repo.listNsv(id) : Promise.resolve({})), [id]);
 export const useInvites = (email?: string | null) =>
   useAsync<Invite[]>(() => (email ? repo.listInvites(email) : Promise.resolve([])), [email]);
-export const useNotifications = (uid?: string | null) =>
+export const useNotifications = (uid?: string) =>
   useAsync<Notification[]>(() => (uid ? repo.listNotifications(uid) : Promise.resolve([])), [uid]);

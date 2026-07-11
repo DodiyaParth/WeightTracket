@@ -46,7 +46,7 @@ export const MOTIV: Record<string, MotivInfo> = {
 };
 
 // 5% / 10% of starting body weight (real health-benefit thresholds).
-export function milestones(startKg?: number | null): { m5: number; m10: number } {
+export function milestones(startKg?: number): { m5: number; m10: number } {
   if (!startKg) return { m5: 0, m10: 0 };
   return { m5: +(startKg * 0.05).toFixed(1), m10: +(startKg * 0.1).toFixed(1) };
 }
@@ -64,7 +64,7 @@ export function milestoneProgress(startKg: number, currentKg: number): number {
 //  - just crossed the 5% milestone → milestone
 //  - otherwise pace vs ideal: ahead / behind / onTrack
 export function computeState({ entries, goal, alpha, milestoneJustHit = false }: {
-  entries?: SeriesPoint[] | null;
+  entries?: SeriesPoint[];
   goal?: Goal | null;
   alpha?: number;
   milestoneJustHit?: boolean;

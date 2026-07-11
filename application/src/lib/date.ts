@@ -95,7 +95,7 @@ export function parseDate(value: string | number | null | undefined, fmt: string
 }
 
 // Guess the format from a set of sample strings.
-export function detectDateFormat(samples: unknown[]): DateFormat {
+export function detectDateFormat(samples: string[]): DateFormat {
   const vals = samples.map((s) => String(s ?? '').trim()).filter(Boolean);
   if (!vals.length) return 'iso';
   if (vals.some((v) => /[A-Za-z]/.test(v))) return 'named';

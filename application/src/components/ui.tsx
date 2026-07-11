@@ -19,15 +19,15 @@ export function Toggle({ on, onClick, label }: { on?: boolean; onClick?: () => v
 
 // Shared segmented single-select control — a real radiogroup (DEV-28): the
 // selected option is marked with aria-checked + a checkmark, never color alone.
-interface SegRadioProps {
-  value: string;
-  onChange: (value: string) => void;
-  options: string[][];
+interface SegRadioProps<T extends string> {
+  value: T;
+  onChange: (value: T) => void;
+  options: [T, string][];
   ariaLabel?: string;
   disabled?: boolean;
 }
 
-export function SegRadio({ value, onChange, options, ariaLabel, disabled }: SegRadioProps) {
+export function SegRadio<T extends string>({ value, onChange, options, ariaLabel, disabled }: SegRadioProps<T>) {
   return (
     <div className="seg" role="radiogroup" aria-label={ariaLabel}>
       {options.map(([k, label]) => (

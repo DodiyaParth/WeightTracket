@@ -32,12 +32,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) {
+    if (!auth) {
       setLoading(false);
       return undefined;
     }
-    getRedirectResult(auth!).catch((e) => setError(errorCode(e) || 'sign-in-failed'));
-    const unsub = onAuthStateChanged(auth!, (u) => {
+    getRedirectResult(auth).catch((e) => setError(errorCode(e) || 'sign-in-failed'));
+    const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
     });
@@ -51,18 +51,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     setError(null);
-    if (!isFirebaseConfigured) {
+    if (!auth) {
       setError('not-configured');
       return;
     }
     try {
-      await signInWithPopup(auth!, googleProvider);
+      await signInWithPopup(auth, googleProvider);
     } catch (e) {
       const code = errorCode(e) || '';
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
       if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
         try {
-          await signInWithRedirect(auth!, googleProvider);
+          await signInWithRedirect(auth, googleProvider);
           return;
         } catch (e2) {
           setError(errorCode(e2) || 'sign-in-failed');
@@ -75,9 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = async (email: string, password: string) => {
     setError(null);
-    if (!isFirebaseConfigured) { setError('not-configured'); return false; }
+    if (!auth) { setError('not-configured'); return false; }
     try {
-      await signInWithEmailAndPassword(auth!, email, password);
+      await signInWithEmailAndPassword(auth, email, password);
       return true;
     } catch (e) {
       setError(errorCode(e) || 'sign-in-failed');
@@ -87,9 +87,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUpWithEmail = async (email: string, password: string) => {
     setError(null);
-    if (!isFirebaseConfigured) { setError('not-configured'); return false; }
+    if (!auth) { setError('not-configured'); return false; }
     try {
-      await createUserWithEmailAndPassword(auth!, email, password);
+      await createUserWithEmailAndPassword(auth, email, password);
       return true;
     } catch (e) {
       setError(errorCode(e) || 'sign-up-failed');
@@ -98,13 +98,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOutUser = async () => {
-    if (!isFirebaseConfigured) return;
+    if (!auth) return;
     // Landing flags are per-uid (wt_landed_{uid}) — clear them all so this
     // tab doesn't accumulate stale entries across sign-in/out cycles.
     try {
       Object.keys(sessionStorage).filter((k) => k.startsWith('wt_landed_')).forEach((k) => sessionStorage.removeItem(k));
     } catch { /* ignore */ }
-    await signOut(auth!);
+    await signOut(auth);
   };
 
   const value = useMemo(
