@@ -65,8 +65,8 @@ const dashboards: Dashboard[] = [
     members: membersMap(member('parth', 'owner', 60), member('priya', 'editor', 58)),
     trackedUids: ['parth', 'priya'],
     goals: {
-      parth: { startKg: 88.0, targetKg: 80.0, targetISO: '2026-09-30' },
-      priya: { startKg: 72.0, targetKg: 66.0, targetISO: null },
+      parth: { targetKg: 80.0, targetISO: '2026-09-30' },
+      priya: { targetKg: 66.0, targetISO: null },
     },
     teamGoal: { label: 'Lose 15 kg together', target: 15 },
     habits: [
@@ -81,7 +81,7 @@ const dashboards: Dashboard[] = [
     id: 'd2', name: 'Marathon prep', ownerUid: 'arjun', createdAt: ago(40), updatedAt: ago(2),
     members: membersMap(member('arjun', 'owner', 40), member('parth', 'editor', 30), member('sara', 'editor', 28)),
     trackedUids: ['arjun', 'parth', 'sara'],
-    goals: { parth: { startKg: 88, targetKg: 84, targetISO: null } },
+    goals: { parth: { targetKg: 84, targetISO: null } },
     teamGoal: { label: '12-week logging streak', target: 12 },
     habits: [{ id: 'h1', label: 'Run', emoji: '🏃' }, { id: 'h2', label: 'Stretch', emoji: '🧘' }],
     public: { enabled: false, token: null },
@@ -98,7 +98,7 @@ const dashboards: Dashboard[] = [
     id: 'd3', name: 'Mom’s journey', ownerUid: 'mom', createdAt: ago(50), updatedAt: ago(1),
     members: membersMap(member('mom', 'owner', 50), member('dad', 'editor', 48), member('parth', 'viewer', 20)),
     trackedUids: ['mom', 'dad'],
-    goals: { mom: { startKg: 78, targetKg: 70, targetISO: null } },
+    goals: { mom: { targetKg: 70, targetISO: null } },
     teamGoal: { label: 'Reach a healthy BMI', target: 8 },
     habits: [{ id: 'h1', label: 'Morning walk', emoji: '🚶' }],
     public: { enabled: false, token: null },
@@ -145,8 +145,8 @@ const nsvD1: Record<string, Nsv[]> = {
 const invites: Invite[] = [
   {
     id: 'inv1', dashboardId: 'ext-crew', dashboardName: 'Office fitness crew',
-    fromUid: 'arjun', fromName: 'Arjun Mehta', fromInitial: 'Ar', toEmail: PEOPLE.parth.email,
-    role: 'editor', members: 4, status: 'pending', createdAt: ago(1),
+    fromUid: 'arjun', fromName: 'Arjun Mehta', toEmail: PEOPLE.parth.email,
+    role: 'editor', status: 'pending', createdAt: ago(1),
   },
 ];
 

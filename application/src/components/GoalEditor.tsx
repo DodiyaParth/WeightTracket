@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import Modal, { Confirm } from './Modal.jsx';
 import Icon, { Avatar } from './Icon.jsx';
-import { repo } from '../data/repo.js';
-import { useAsyncAction } from '../hooks/useAsyncAction.js';
+import { useUpdateDashboard } from '../hooks/mutations.js';
 import { memberList } from '../lib/dashboards.js';
 import { paceCheck } from '../lib/health.js';
 import { currentWeight } from '../lib/stats.js';
@@ -62,15 +61,15 @@ export default function GoalEditor({ dashboard, series, profiles = {}, onClose }
   const [goals, setGoals] = useState<Record<string, Goal>>(() => ({ ...dashboard.goals }));
   const [team, setTeam] = useState<{ label: string; target: number | string }>(() => ({ label: dashboard.teamGoal?.label || '', target: dashboard.teamGoal?.target || '' }));
   const [confirmClearTeam, setConfirmClearTeam] = useState(false);
-  const { run, busy, error } = useAsyncAction();
+  const { run, busy, error } = useUpdateDashboard();
 
   const setGoal = (uid: string, patch: Partial<Goal>) => setGoals((g) => ({ ...g, [uid]: { ...g[uid], ...patch } }));
   const doSave = async () => {
     try {
-      await run(() => repo.updateDashboard(dashboard.id, {
+      await run(dashboard.id, {
         goals,
         teamGoal: team.label.trim() ? { label: team.label.trim(), target: Number(team.target) || 10 } : null,
-      }));
+      });
     } catch { return; }
     setConfirmClearTeam(false);
     onClose();

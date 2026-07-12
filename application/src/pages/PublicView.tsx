@@ -3,8 +3,7 @@ import Icon, { Logo, AvatarStack } from '../components/Icon.jsx';
 import DashboardBody from '../components/DashboardBody.jsx';
 import Splash from '../components/Splash.jsx';
 import { RetryCard } from '../components/ui.jsx';
-import { useAsync } from '../hooks/useData.js';
-import { repo } from '../data/repo.js';
+import { usePublicView } from '../hooks/useData.js';
 import { memberList } from '../lib/dashboards.js';
 import type { Dashboard } from '../types.js';
 
@@ -13,7 +12,7 @@ import type { Dashboard } from '../types.js';
 export default function PublicView() {
   const { token } = useParams();
   const nav = useNavigate();
-  const { data: snap, loading, error, reload } = useAsync(() => repo.getPublicView(token!), [token]);
+  const { data: snap, loading, error, reload } = usePublicView(token);
 
   if (loading) return <Splash label="Loading shared dashboard…" />;
 

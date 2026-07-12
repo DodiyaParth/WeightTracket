@@ -8,9 +8,9 @@ import Sparkline from '../components/Sparkline.jsx';
 import CreateDashboard from '../components/CreateDashboard.jsx';
 import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useDashboards, useInvites, useDashboardSeries, useProfiles } from '../hooks/useData.js';
-import { useAsyncAction } from '../hooks/useAsyncAction.js';
-import { repo } from '../data/repo.js';
+import { useAcceptInvite, useDeclineInvite } from '../hooks/mutations.js';
 import { collaborating, viewOnly, accessFor, isEditable, memberList } from '../lib/dashboards.js';
+import { initials } from '../lib/colors.js';
 import { togetherChange } from '../lib/stats.js';
 import { fmtDate } from '../lib/date.js';
 import { formatChange } from '../lib/format.js';
@@ -56,14 +56,15 @@ function Invites({ invites, user }: { invites: Invite[] | undefined; user: AuthU
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
   const [decliningInv, setDecliningInv] = useState<Invite | null>(null);
-  const { run: runDecline, busy: declineBusy, error: declineError } = useAsyncAction();
+  const { run: runAccept } = useAcceptInvite();
+  const { run: runDecline, busy: declineBusy, error: declineError } = useDeclineInvite();
 
   const accept = async (inv: Invite) => {
     if (busyId) return;
     setBusyId(inv.id);
     setRowError(null);
     try {
-      await repo.acceptInvite(inv.id, user);
+      await runAccept(inv.id, user);
     } catch {
       setRowError('Couldn’t accept that invite — try again.');
     } finally {
@@ -72,7 +73,7 @@ function Invites({ invites, user }: { invites: Invite[] | undefined; user: AuthU
   };
   const confirmDecline = async (inv: Invite) => {
     try {
-      await runDecline(() => repo.declineInvite(inv.id));
+      await runDecline(inv.id);
       setDecliningInv(null);
     } catch { /* surfaced via declineError */ }
   };
@@ -83,10 +84,10 @@ function Invites({ invites, user }: { invites: Invite[] | undefined; user: AuthU
       <span className="list-section-label">Pending invites</span>
       {invites.map((inv) => (
         <div key={inv.id} className="invite-card">
-          <span className="avatar" style={{ width: 40, height: 40, fontSize: 15, background: 'var(--p3)' }}>{inv.fromInitial}</span>
+          <span className="avatar" style={{ width: 40, height: 40, fontSize: 15, background: 'var(--p3)' }}>{initials(inv.fromName)}</span>
           <div className="grow">
             <div style={{ fontWeight: 600 }}>{inv.fromName} invited you to “{inv.dashboardName}”</div>
-            <div className="t2 small">{inv.members ? `${inv.members} people · ` : ''}you’ll be {inv.role === 'viewer' ? 'a viewer' : 'an editor'}</div>
+            <div className="t2 small">you’ll be {inv.role === 'viewer' ? 'a viewer' : 'an editor'}</div>
           </div>
           <div className="row" style={{ gap: 10 }}>
             <button className="btn sm" disabled={busyId === inv.id} onClick={() => setDecliningInv(inv)}>Decline</button>

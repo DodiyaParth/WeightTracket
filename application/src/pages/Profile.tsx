@@ -6,8 +6,7 @@ import { Toast } from '../components/ui.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useProfile } from '../hooks/useData.js';
-import { useAsyncAction } from '../hooks/useAsyncAction.js';
-import { repo } from '../data/repo.js';
+import { useUpdateProfile } from '../hooks/mutations.js';
 
 export default function Profile() {
   const { signOutUser } = useAuth();
@@ -16,7 +15,7 @@ export default function Profile() {
   const [name, setName] = useState('');
   const [height, setHeight] = useState('');
   const [toast, setToast] = useState<string | null>(null);
-  const { run, busy, error } = useAsyncAction();
+  const { run, busy, error } = useUpdateProfile();
   const signedInWithGoogle = user.providerData?.[0]?.providerId === 'google.com';
 
   useEffect(() => {
@@ -25,7 +24,7 @@ export default function Profile() {
 
   const save = async () => {
     try {
-      await run(() => repo.updateProfile(user.uid, { name: name.trim() || 'You', heightM: height ? +height : null }));
+      await run(user.uid, { name: name.trim() || 'You', heightM: height ? +height : null });
     } catch { return; }
     setToast('Profile saved');
     setTimeout(() => setToast(null), 2200);

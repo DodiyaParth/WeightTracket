@@ -15,8 +15,6 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { db as maybeDb } from '../firebase.js';
-import { bus } from './bus.js';
-import { initials } from '../lib/colors.js';
 import { memberList } from '../lib/dashboards.js';
 import { applyAutoGrace } from '../lib/habits.js';
 import type {
@@ -30,7 +28,6 @@ import type {
 // as it did before (doc(undefined, ...)).
 const db = maybeDb as Firestore;
 
-const changed = () => bus.emit();
 // Cryptographically strong token (128 bits) for the world-readable public link
 // — brute-forceable random ids are not acceptable once anyone with the string
 // gets a read (DEV-6).
@@ -74,10 +71,10 @@ export async function ensureProfile(authUser: AuthUser): Promise<Profile> {
 // No dashboard fan-out needed: dashboards never store a copy of name/height/etc
 // (see lib/dashboards.js memberList) — every view that shows them re-derives
 // live from this document, so a profile edit is visible everywhere on its own
-// next fetch (the bus emit below is what triggers that refetch).
+// next fetch (mutation hooks in hooks/mutations.js invalidate ['profile']/
+// ['profiles'] to trigger that refetch).
 export async function updateProfile(uid: string, patch: Partial<Profile>): Promise<void> {
   await updateDoc(doc(db, 'users', uid), patch);
-  changed();
 }
 
 // ---- weights (self-only) + series fan-out -------------------------------
@@ -117,14 +114,12 @@ async function fanOutSeries(uid: string): Promise<void> {
 export async function addWeight(uid: string, { date, kg, note = '' }: { date: string; kg: number; note?: string }): Promise<void> {
   await setDoc(doc(db, 'users', uid, 'weights', date), { date, kg: +kg, note, updatedAt: Date.now() });
   await fanOutSeries(uid);
-  changed();
 }
 
 export async function addWeights(uid: string, entries: Array<{ date: string; kg: number; note?: string }>): Promise<number> {
   await Promise.all(entries.map((e) =>
     setDoc(doc(db, 'users', uid, 'weights', e.date), { date: e.date, kg: +e.kg, note: e.note || '', updatedAt: Date.now() })));
   await fanOutSeries(uid);
-  changed();
   return entries.length;
 }
 
@@ -144,13 +139,11 @@ export async function updateWeight(uid: string, id: string, patch: Partial<Weigh
     await updateDoc(doc(db, 'users', uid, 'weights', id), patch);
   }
   await fanOutSeries(uid);
-  changed();
 }
 
 export async function deleteWeight(uid: string, id: string): Promise<void> {
   await deleteDoc(doc(db, 'users', uid, 'weights', id));
   await fanOutSeries(uid);
-  changed();
 }
 
 // ---- dashboards ---------------------------------------------------------
@@ -177,7 +170,6 @@ export async function createDashboard(uid: string, { name, teamGoalLabel, teamGo
   };
   const ref = await addDoc(collection(db, 'dashboards'), data);
   await setDoc(doc(db, 'dashboards', ref.id, 'series', uid), { uid, entries: await seriesEntriesFor(uid), updatedAt: Date.now() });
-  changed();
   return { id: ref.id, ...data };
 }
 
@@ -185,6 +177,18 @@ export async function createDashboard(uid: string, { name, teamGoalLabel, teamGo
 // hiccup rebuilding it (or a transient permission blip) must never fail the
 // goal/habit/role edit that triggered it. Same defensive pattern as
 // fanOutSeries's per-dashboard try/catch.
+//
+// Every write that can change what a public link shows must call this (via
+// `if (d?.public?.enabled) await safeRebuildPublic(id)`) or go through
+// fanOutSeries, which does the equivalent check itself. Current call sites —
+// keep this list in sync when adding a new dashboard-content mutation:
+//   - updateDashboard, updateMemberRole, removeMember, setHabitMark (goals/
+//     habits/name/settings/membership/habit marks)
+//   - addNsv, deleteNsv (wins/NSV notes)
+//   - fanOutSeries (weight changes, via addWeight/addWeights/updateWeight/
+//     deleteWeight) — checks d.public itself rather than through this helper
+//   - setPublicLink(true) (first build) / createDashboard (initial series only,
+//     no public snapshot needed yet — public defaults to disabled)
 async function safeRebuildPublic(dashboardId: string): Promise<void> {
   try { await rebuildPublic(dashboardId); } catch (e) {
     // eslint-disable-next-line no-console
@@ -196,7 +200,6 @@ export async function updateDashboard(id: string, patch: Partial<Dashboard>): Pr
   await updateDoc(doc(db, 'dashboards', id), { ...patch, updatedAt: Date.now() });
   const d = await getDashboard(id);
   if (d?.public?.enabled) await safeRebuildPublic(id);
-  changed();
 }
 
 // A field-path update, not a whole-members-map rewrite (DEV-17) — a role
@@ -206,7 +209,6 @@ export async function updateMemberRole(id: string, uid: string, role: Role): Pro
   await updateDoc(doc(db, 'dashboards', id), { [`members.${uid}.role`]: role, updatedAt: Date.now() });
   const d = await getDashboard(id);
   if (d?.public?.enabled) await safeRebuildPublic(id);
-  changed();
 }
 
 // Used both for "owner removes someone else" and "a member leaves (removes
@@ -221,7 +223,6 @@ export async function removeMember(id: string, uid: string): Promise<void> {
   });
   const d = await getDashboard(id);
   if (d?.public?.enabled) await safeRebuildPublic(id);
-  changed();
 }
 
 // Owner-only (see firestore.rules). Cleans up every subcollection doc and the
@@ -241,7 +242,6 @@ export async function deleteDashboard(id: string): Promise<void> {
   if (d?.public?.token) batch.delete(doc(db, 'publicViews', d.public.token));
   batch.delete(doc(db, 'dashboards', id));
   await batch.commit();
-  changed();
 }
 
 export async function getDashboardSeries(id: string): Promise<Record<string, SeriesPoint[]>> {
@@ -270,7 +270,6 @@ export async function setHabitMark(id: string, uid: string, habitId: string, dat
   await updateDoc(doc(db, 'dashboards', id), { updatedAt: Date.now() });
   const d = await getDashboard(id);
   if (d?.public?.enabled) await safeRebuildPublic(id);
-  changed();
 }
 
 // ---- NSV ----------------------------------------------------------------
@@ -289,13 +288,15 @@ export async function listNsv(id: string): Promise<Record<string, Nsv[]>> {
 export async function addNsv(id: string, uid: string, { date, text }: { date?: string | null; text: string }): Promise<void> {
   await addDoc(collection(db, 'dashboards', id, 'nsv'), { uid, date, text, createdAt: Date.now() });
   await updateDoc(doc(db, 'dashboards', id), { updatedAt: Date.now() });
-  changed();
+  const d = await getDashboard(id);
+  if (d?.public?.enabled) await safeRebuildPublic(id);
 }
 
 export async function deleteNsv(dashboardId: string, noteId: string): Promise<void> {
   await deleteDoc(doc(db, 'dashboards', dashboardId, 'nsv', noteId));
   await updateDoc(doc(db, 'dashboards', dashboardId), { updatedAt: Date.now() });
-  changed();
+  const d = await getDashboard(dashboardId);
+  if (d?.public?.enabled) await safeRebuildPublic(dashboardId);
 }
 
 // ---- invites ------------------------------------------------------------
@@ -316,10 +317,9 @@ export async function listOutgoing(dashboardId: string): Promise<Invite[]> {
 export async function createInvite(dashboardId: string, { fromUid, fromName, toEmail, role }: { fromUid: string; fromName: string; toEmail: string; role?: Role }): Promise<Invite> {
   const d = await getDashboard(dashboardId);
   const email = (toEmail || '').toLowerCase().trim();
-  const data = { dashboardId, dashboardName: d?.name || 'a dashboard', fromUid, fromName, fromInitial: initials(fromName), toEmail: email, role: role || 'editor', status: 'pending' as const, createdAt: Date.now() };
+  const data = { dashboardId, dashboardName: d?.name || 'a dashboard', fromUid, fromName, toEmail: email, role: role || 'editor', status: 'pending' as const, createdAt: Date.now() };
   const id = `${dashboardId}_${email}`;
   await setDoc(doc(db, 'invites', id), data);
-  changed();
   return { id, ...data };
 }
 
@@ -342,17 +342,14 @@ export async function acceptInvite(inviteId: string, authUser: AuthUser): Promis
   batch.set(doc(db, 'dashboards', inv.dashboardId, 'series', authUser.uid), { uid: authUser.uid, entries, updatedAt: Date.now() });
   batch.update(inviteRef, { status: 'accepted' });
   await batch.commit();
-  changed();
 }
 
 export async function declineInvite(inviteId: string): Promise<void> {
   await updateDoc(doc(db, 'invites', inviteId), { status: 'declined' });
-  changed();
 }
 
 export async function cancelInvite(inviteId: string): Promise<void> {
   await deleteDoc(doc(db, 'invites', inviteId));
-  changed();
 }
 
 // ---- sharing / public ---------------------------------------------------
@@ -384,12 +381,10 @@ export async function setPublicLink(dashboardId: string, enabled: boolean): Prom
     const token = d?.public?.token || rid('tok');
     await updateDoc(doc(db, 'dashboards', dashboardId), { public: { enabled: true, token }, updatedAt: Date.now() });
     await rebuildPublic(dashboardId);
-    changed();
     return { enabled: true, token };
   }
   if (d?.public?.token) await deleteDoc(doc(db, 'publicViews', d.public.token)).catch(() => {});
   await updateDoc(doc(db, 'dashboards', dashboardId), { public: { enabled: false, token: null }, updatedAt: Date.now() });
-  changed();
   return { enabled: false, token: null };
 }
 

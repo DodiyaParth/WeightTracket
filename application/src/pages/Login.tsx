@@ -3,19 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import Icon, { Logo, GoogleG } from '../components/Icon.jsx';
 import Splash from '../components/Splash.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
-
-const ERROR_MESSAGES: Record<string, string> = {
-  'auth/invalid-credential': 'Wrong email or password.',
-  'auth/invalid-email': 'That doesn’t look like a valid email.',
-  'auth/user-not-found': 'Wrong email or password.',
-  'auth/wrong-password': 'Wrong email or password.',
-  'auth/email-already-in-use': 'That email already has an account — try signing in instead.',
-  'auth/weak-password': 'Use at least 6 characters.',
-  'auth/missing-password': 'Enter a password.',
-  'auth/not-configured': 'Firebase isn’t configured yet.',
-  'not-configured': 'Firebase isn’t configured yet.',
-};
-const errorText = (code: string) => ERROR_MESSAGES[code] || 'Something went wrong. Please try again.';
+import { authErrorText } from '../auth/authErrors.js';
 
 export default function Login() {
   const { user, loading, configured, error, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
@@ -104,7 +92,7 @@ export default function Login() {
 
         {error && configured && (
           <span className="small" style={{ color: 'var(--rose)' }}>
-            {errorText(error)}
+            {authErrorText(error)}
           </span>
         )}
 

@@ -66,7 +66,7 @@ describe('dashboards never store denormalized profile fields — a height edit i
     await repo.updateProfile(UID, { heightM: 1.99 });
 
     // Re-reading the dashboard + a fresh profile fetch (exactly what the
-    // DashboardDetail → useProfiles refetch-on-bus-change path does) must
+    // DashboardDetail → useProfiles refetch-after-invalidation path does) must
     // show the new height with no dashboard-side write in between.
     const dashAfter = await repo.getDashboard(d.id);
     const profilesAfter = await repo.getProfiles([UID]);

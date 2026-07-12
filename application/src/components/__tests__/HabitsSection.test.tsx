@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithRouter, userEvent } from '../../test/test-utils.jsx';
 
 const setHabitMark = vi.fn();
@@ -106,7 +106,7 @@ describe('HabitsSection - streak grid', () => {
     // Now cells for the signed-in user are editable buttons (aria-label = date)
     const cell = screen.getAllByRole('button', { name: todayISO() })[0];
     fireEvent.click(cell);
-    expect(setHabitMark).toHaveBeenCalled();
+    await waitFor(() => expect(setHabitMark).toHaveBeenCalled());
   });
 
   it('switches the span between Week and Month', async () => {
@@ -179,7 +179,7 @@ describe('HabitsSection - branch coverage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Parth' }));
     const blank = addDays(todayISO(), -5);
     fireEvent.click(screen.getAllByRole('button', { name: blank })[0]);
-    expect(setHabitMark).toHaveBeenCalledWith('d1', 'parth', 'h1', blank, 1);
+    await waitFor(() => expect(setHabitMark).toHaveBeenCalledWith('d1', 'parth', 'h1', blank, 1));
   });
 
   it('shows a grid save error when a cell toggle fails', async () => {

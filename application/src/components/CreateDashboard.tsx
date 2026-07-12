@@ -4,7 +4,7 @@ import Modal from './Modal.jsx';
 import Icon from './Icon.jsx';
 import { SegRadio } from './ui.jsx';
 import { useAuthedUser } from '../auth/useAuthedUser.js';
-import { repo } from '../data/repo.js';
+import { useCreateDashboard, useCreateInvite } from '../hooks/mutations.js';
 import type { Role } from '../types.js';
 
 const ROLE_OPTIONS: [Role, string][] = [['editor', 'Can edit'], ['viewer', 'Read only']];
@@ -20,13 +20,15 @@ export default function CreateDashboard({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('editor');
   const [busy, setBusy] = useState(false);
+  const { run: runCreateDashboard } = useCreateDashboard();
+  const { run: runCreateInvite } = useCreateInvite();
 
   const create = async () => {
     if (!name.trim() || busy) return;
     setBusy(true);
-    const d = await repo.createDashboard(user.uid, { name: name.trim(), teamGoalLabel: goal.trim() || null, teamGoalTarget: target });
+    const d = await runCreateDashboard(user.uid, { name: name.trim(), teamGoalLabel: goal.trim() || null, teamGoalTarget: target });
     if (showInvite && email.trim()) {
-      await repo.createInvite(d.id, { fromUid: user.uid, fromName: user.displayName || 'A teammate', toEmail: email.trim(), role });
+      await runCreateInvite(d.id, { fromUid: user.uid, fromName: user.displayName || 'A teammate', toEmail: email.trim(), role });
     }
     onClose();
     nav(`/dashboard/${d.id}`);

@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Modal, { Confirm } from './Modal.jsx';
 import Icon from './Icon.jsx';
 import { Toggle } from './ui.jsx';
-import { repo } from '../data/repo.js';
-import { useAsyncAction } from '../hooks/useAsyncAction.js';
+import { useUpdateDashboard, useDeleteDashboard, useRemoveMember } from '../hooks/mutations.js';
 import { memberList } from '../lib/dashboards.js';
 import type { Dashboard, Profile } from '../types.js';
 
@@ -27,20 +26,26 @@ export default function DashSettings({ dashboard, profiles = {}, meUid, onClose,
   const [layers, setLayers] = useState<Record<string, boolean>>(() => ({ raw: true, projection: true, ideal: true, goal: true, ...initial.layers }));
   const [shown, setShown] = useState<Record<string, boolean>>(() => Object.fromEntries(members.map((m) => [m.uid, initial.shown?.[m.uid] ?? true])));
   const [dangerAction, setDangerAction] = useState<'delete' | 'leave' | null>(null);
-  const { run, busy, error } = useAsyncAction();
-  const { run: runDanger, busy: dangerBusy, error: dangerError } = useAsyncAction();
+  const { run, busy, error } = useUpdateDashboard();
+  const { run: runDelete, busy: deleteBusy, error: deleteError } = useDeleteDashboard();
+  const { run: runLeave, busy: leaveBusy, error: leaveError } = useRemoveMember();
+  // Only one danger action is offered at a time (delete for the owner, leave
+  // for everyone else — see the buttons below), so combining their busy/error
+  // is equivalent to a single shared action state.
+  const dangerBusy = deleteBusy || leaveBusy;
+  const dangerError = deleteError || leaveError;
   const isOwner = dashboard.ownerUid === meUid;
 
   const save = async () => {
     try {
-      await run(() => repo.updateDashboard(dashboard.id, { name: name.trim() || dashboard.name, settings: { layers, shown } }));
+      await run(dashboard.id, { name: name.trim() || dashboard.name, settings: { layers, shown } });
     } catch { return; }
     onClose();
   };
   const confirmDanger = async () => {
     try {
-      if (dangerAction === 'delete') await runDanger(() => repo.deleteDashboard(dashboard.id));
-      else await runDanger(() => repo.removeMember(dashboard.id, meUid));
+      if (dangerAction === 'delete') await runDelete(dashboard.id);
+      else await runLeave(dashboard.id, meUid);
     } catch { return; }
     nav('/');
   };

@@ -7,7 +7,7 @@ let authUser;
 vi.mock('../../auth/AuthContext.jsx', () => ({ useAuth: () => ({ user: authUser }) }));
 
 let outgoingData;
-vi.mock('../../hooks/useData.js', () => ({ useAsync: () => ({ data: outgoingData }) }));
+vi.mock('../../hooks/useData.js', () => ({ useOutgoingInvites: () => ({ data: outgoingData }) }));
 
 const createInvite = vi.fn();
 const updateMemberRole = vi.fn();
@@ -101,7 +101,7 @@ describe('ShareModal (owner)', () => {
   });
 
   it('cancels a pending invite after confirming', async () => {
-    outgoingData = [{ id: 'inv1', toEmail: 'x@y.com', status: 'pending', fromInitial: 'A' }];
+    outgoingData = [{ id: 'inv1', toEmail: 'x@y.com', status: 'pending', fromName: 'Parth' }];
     renderShare();
     expect(screen.getByText('x@y.com')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -179,7 +179,7 @@ describe('ShareModal - branch coverage', () => {
 
   it('renders a pending invite with no initial and ignores non-pending ones', () => {
     outgoingData = [
-      { id: 'i1', toEmail: 'a@b.com', status: 'pending' }, // no fromInitial → ✉ fallback
+      { id: 'i1', toEmail: 'a@b.com', status: 'pending' }, // no fromName → ✉ fallback
       { id: 'i2', toEmail: 'done@b.com', status: 'accepted' }, // filtered out
     ];
     renderShare();

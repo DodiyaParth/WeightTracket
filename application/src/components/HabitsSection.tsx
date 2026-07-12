@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import Icon from './Icon.jsx';
 import { Confirm } from './Modal.jsx';
-import { repo } from '../data/repo.js';
 import { useAsyncAction } from '../hooks/useAsyncAction.js';
+import { useSetHabitMark, useUpdateDashboard } from '../hooks/mutations.js';
 import { todayISO, addDays, isoToMs } from '../lib/date.js';
 import { currentStreak, wasRepaired, gridDays, GRACE } from '../lib/habits.js';
-import type { Dashboard, EnrichedMember, Habit, HabitLog } from '../types.js';
+import type { Dashboard, EnrichedMember, Habit, HabitLog, HabitMark } from '../types.js';
 
 const DAYS = 28;
 
@@ -26,12 +26,13 @@ interface ChecklistProps {
   meUid: string;
   meName: string;
   readOnly: boolean;
+  setHabitMark: (id: string, uid: string, habitId: string, date: string, value: HabitMark | 0 | null | undefined) => Promise<void>;
   onAddHabit: () => void;
   onRename: (id: string, label: string) => Promise<void> | void;
   onDelete: (id: string) => Promise<void> | void;
 }
 
-function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, onAddHabit, onRename, onDelete }: ChecklistProps) {
+function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, setHabitMark, onAddHabit, onRename, onDelete }: ChecklistProps) {
   const [offset, setOffset] = useState(0);
   const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
   const [failedId, setFailedId] = useState<string | null>(null);
@@ -50,7 +51,7 @@ function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, onAddHa
     setPendingIds((s) => new Set(s).add(h.id));
     setFailedId(null);
     try {
-      await repo.setHabitMark(dashboardId, meUid, h.id, date, isDone(h) ? 0 : 1);
+      await setHabitMark(dashboardId, meUid, h.id, date, isDone(h) ? 0 : 1);
     } catch {
       setFailedId(h.id);
     } finally {
@@ -142,9 +143,10 @@ interface StreakGridProps {
   readOnly: boolean;
   dashboardId: string;
   teamLabel?: string;
+  setHabitMark: (id: string, uid: string, habitId: string, date: string, value: HabitMark | 0 | null | undefined) => Promise<void>;
 }
 
-function StreakGrid({ members, habits, logs, meUid, readOnly, dashboardId, teamLabel }: StreakGridProps) {
+function StreakGrid({ members, habits, logs, meUid, readOnly, dashboardId, teamLabel, setHabitMark }: StreakGridProps) {
   const [span, setSpan] = useState('Month');
   const [scope, setScope] = useState('all');
   const [pendingKey, setPendingKey] = useState<string | null>(null);
@@ -170,7 +172,7 @@ function StreakGrid({ members, habits, logs, meUid, readOnly, dashboardId, teamL
     setFailedKey(null);
     const cur = logs[meUid]?.[h.id]?.[date];
     try {
-      await repo.setHabitMark(dashboardId, meUid, h.id, date, cur ? 0 : 1);
+      await setHabitMark(dashboardId, meUid, h.id, date, cur ? 0 : 1);
     } catch {
       setFailedKey(key);
     } finally {
@@ -237,7 +239,12 @@ interface HabitsSectionProps {
 export default function HabitsSection({ dashboard, members, logs, meUid, readOnly }: HabitsSectionProps) {
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState('');
-  const { run, busy, error } = useAsyncAction();
+  // Independent mutation-hook instances (not shared) so add/rename/delete keep
+  // the same independent busy/error tracking they had before this migration —
+  // e.g. renaming a habit must not disable the unrelated "add habit" input.
+  const { run, busy, error } = useUpdateDashboard();
+  const { run: runUpdateHabit } = useUpdateDashboard();
+  const { run: runSetHabitMark } = useSetHabitMark();
   const habits = dashboard.habits || [];
   const meName = members.find((m) => m.uid === meUid)?.name || 'You';
 
@@ -245,14 +252,14 @@ export default function HabitsSection({ dashboard, members, logs, meUid, readOnl
     if (!label.trim()) { setAdding(false); return; }
     const id = `h_${Math.random().toString(36).slice(2, 7)}`;
     try {
-      await run(() => repo.updateDashboard(dashboard.id, { habits: [...habits, { id, label: label.trim(), emoji: '⭐' }] }));
+      await run(dashboard.id, { habits: [...habits, { id, label: label.trim(), emoji: '⭐' }] });
     } catch { return; }
     setLabel(''); setAdding(false);
   };
   const renameHabit = (id: string, newLabel: string) =>
-    repo.updateDashboard(dashboard.id, { habits: habits.map((h) => (h.id === id ? { ...h, label: newLabel } : h)) });
+    runUpdateHabit(dashboard.id, { habits: habits.map((h) => (h.id === id ? { ...h, label: newLabel } : h)) });
   const deleteHabit = (id: string) =>
-    repo.updateDashboard(dashboard.id, { habits: habits.filter((h) => h.id !== id) });
+    runUpdateHabit(dashboard.id, { habits: habits.filter((h) => h.id !== id) });
 
   return (
     <div className="col" style={{ gap: 14 }}>
@@ -272,10 +279,10 @@ export default function HabitsSection({ dashboard, members, logs, meUid, readOnl
       )}
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <Checklist
-          dashboardId={dashboard.id} habits={habits} logs={logs} meUid={meUid} meName={meName} readOnly={readOnly}
+          dashboardId={dashboard.id} habits={habits} logs={logs} meUid={meUid} meName={meName} readOnly={readOnly} setHabitMark={runSetHabitMark}
           onAddHabit={() => setAdding(true)} onRename={renameHabit} onDelete={deleteHabit}
         />
-        <StreakGrid members={members} habits={habits} logs={logs} meUid={meUid} readOnly={readOnly} dashboardId={dashboard.id} teamLabel={dashboard.teamGoal?.label} />
+        <StreakGrid members={members} habits={habits} logs={logs} meUid={meUid} readOnly={readOnly} dashboardId={dashboard.id} teamLabel={dashboard.teamGoal?.label} setHabitMark={runSetHabitMark} />
       </div>
     </div>
   );

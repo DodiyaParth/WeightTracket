@@ -2,6 +2,11 @@
 // it to the bits the UI needs (a Firebase-style `.code`, or a message) without
 // assuming a concrete Error subclass — behaviour matches the prior `e?.code` /
 // `e?.message` access, just type-safe.
+//
+// Deliberately generic and code-agnostic: both auth (AuthContext.tsx) and
+// non-auth data-mutation errors (e.g. DashboardDetail.tsx) narrow through
+// here. Auth-specific code -> friendly-message mapping lives in
+// auth/authErrors.ts, not here.
 
 export function errorCode(e: unknown): string | undefined {
   if (typeof e === 'object' && e !== null && 'code' in e) {

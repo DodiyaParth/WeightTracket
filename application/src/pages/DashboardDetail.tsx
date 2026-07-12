@@ -10,8 +10,7 @@ import { RetryCard } from '../components/ui.jsx';
 import { Confirm } from '../components/Modal.jsx';
 import { useQuickLog } from '../components/QuickLog.jsx';
 import { useAuthedUser } from '../auth/useAuthedUser.js';
-import { useAsyncAction } from '../hooks/useAsyncAction.js';
-import { repo } from '../data/repo.js';
+import { useRemoveMember } from '../hooks/mutations.js';
 import { useDashboard, useDashboardSeries, useHabitLogs, useNsv, useProfiles } from '../hooks/useData.js';
 import { isEditable, memberList } from '../lib/dashboards.js';
 import { errorCode } from '../lib/errors.js';
@@ -28,7 +27,7 @@ export default function DashboardDetail() {
   const { data: profiles } = useProfiles(d?.memberUids || []);
   const [modal, setModal] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
-  const { run: runLeave, busy: leaveBusy, error: leaveError } = useAsyncAction();
+  const { run: runLeave, busy: leaveBusy, error: leaveError } = useRemoveMember();
 
   if (loading && !d) return <Layout title="Loading…" primary={null}><div className="skel" style={{ height: 240, borderRadius: 12 }} /></Layout>;
   // A permission-denied read means "you don't have access" (never a member, removed,
@@ -58,7 +57,7 @@ export default function DashboardDetail() {
   const isOwner = d.ownerUid === user.uid;
 
   const confirmLeave = async () => {
-    try { await runLeave(() => repo.removeMember(d.id, user.uid)); } catch { return; }
+    try { await runLeave(d.id, user.uid); } catch { return; }
     setLeaving(false);
     nav('/');
   };

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithRouter, userEvent } from '../../test/test-utils.jsx';
 import { todayISO, addDays } from '../../lib/date.js';
@@ -156,7 +156,7 @@ describe('QuickLog - branch coverage', () => {
     const input = screen.getByLabelText('Weight in kg');
     await userEvent.clear(input);
     await userEvent.type(input, '77{Enter}');
-    expect(addWeight).toHaveBeenCalledWith('parth', expect.objectContaining({ kg: 77 }));
+    await waitFor(() => expect(addWeight).toHaveBeenCalledWith('parth', expect.objectContaining({ kg: 77 })));
   });
 
   it('surfaces a save error inline', async () => {

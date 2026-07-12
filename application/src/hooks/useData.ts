@@ -1,61 +1,156 @@
-// Data hooks. Each fetches via the repo and auto-refetches when the change bus
-// fires (after any mutation), so logging a weigh-in updates every open view.
-import { useState, useEffect, useCallback, useRef, type DependencyList } from 'react';
-import { repo, bus } from '../data/repo.js';
+// Data hooks. Each fetches via the repo through TanStack Query, which keys the
+// cache per-argument (e.g. per uid/dashboard id) so two components asking for
+// the same data share one request instead of double-fetching, and dedupes
+// concurrent mounts for free. Cross-view refresh after a write comes from the
+// mutation hooks in hooks/mutations.js, which invalidate the entity-level
+// query keys each write can affect — so logging a weigh-in still updates
+// every open view showing it, without every view re-fetching independently.
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { repo } from '../data/repo.js';
 import type {
-  Profile, WeightEntry, Dashboard, SeriesPoint, HabitLog, Nsv, Invite, Notification,
+  Profile, WeightEntry, Dashboard, SeriesPoint, HabitLog, Nsv, Invite, Notification, PublicView,
 } from '../types.js';
 
-interface AsyncState<T> {
+interface AsyncResult<T> {
   data: T | undefined;
   loading: boolean;
   error: unknown;
+  reload: () => void;
 }
 
-export function useAsync<T>(fn: () => Promise<T> | T, deps: DependencyList = []) {
-  const [state, setState] = useState<AsyncState<T>>({ data: undefined, loading: true, error: null });
-  const fnRef = useRef(fn);
-  fnRef.current = fn;
-  const reqId = useRef(0);
-
-  const run = useCallback(() => {
-    const id = ++reqId.current;
-    setState((s) => ({ ...s, loading: true }));
-    Promise.resolve(fnRef.current())
-      .then((data) => { if (id === reqId.current) setState({ data, loading: false, error: null }); })
-      .catch((error) => { if (id === reqId.current) setState({ data: undefined, loading: false, error }); });
-  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    run();
-    return bus.subscribe(run);
-  }, [run]);
-
-  return { ...state, reload: run };
+// Adapts a TanStack Query result back to the {data, loading, error, reload}
+// shape every hook returned before this migration, so none of the ~10
+// consuming components need to change. `empty` fills in for `undefined` when
+// a query is simply disabled (missing uid/id) or hasn't resolved yet — but a
+// genuine fetch error still surfaces `data: undefined` (never silently
+// replaced by the empty default), matching the old useAsync contract that
+// existing error-path tests rely on.
+function toAsyncResult<T>(query: UseQueryResult<T, Error>, empty: T): AsyncResult<T> {
+  return {
+    data: query.isError ? undefined : (query.data ?? empty),
+    loading: query.isLoading,
+    error: query.error ?? null,
+    reload: (): void => { void query.refetch(); },
+  };
 }
 
-export const useProfile = (uid?: string) =>
-  useAsync<Profile | null>(() => (uid ? repo.getProfile(uid) : Promise.resolve(null)), [uid]);
+// Every hook below follows the same `enabled: !!param` + `param!` pairing:
+// `enabled` guarantees the queryFn never runs while the argument is missing,
+// so the `!` inside it asserts a boundary TanStack Query itself enforces —
+// not an unchecked assumption — rather than a redundant `param ? … : …`
+// fallback that would never be reachable.
+
+export const useProfile = (uid?: string): AsyncResult<Profile | null> => {
+  const query = useQuery<Profile | null>({
+    queryKey: ['profile', uid],
+    queryFn: () => repo.getProfile(uid!),
+    enabled: !!uid,
+  });
+  return toAsyncResult(query, null);
+};
+
 // Batch-fetches profiles for a set of uids — how dashboard-membership UI joins
 // live name/email/photoURL/heightM against the (deliberately un-denormalized)
 // members map. Keyed by a joined string since arrays are reference-unstable.
-export const useProfiles = (uids?: string[]) => {
+export const useProfiles = (uids?: string[]): AsyncResult<Record<string, Profile>> => {
   const key = (uids || []).join(',');
-  return useAsync<Record<string, Profile>>(() => (uids && uids.length ? repo.getProfiles(uids) : Promise.resolve({})), [key]);
+  const query = useQuery<Record<string, Profile>>({
+    queryKey: ['profiles', key],
+    queryFn: () => repo.getProfiles(uids),
+    enabled: !!(uids && uids.length),
+  });
+  return toAsyncResult(query, {});
 };
-export const useWeights = (uid?: string) =>
-  useAsync<WeightEntry[]>(() => (uid ? repo.listWeights(uid) : Promise.resolve([])), [uid]);
-export const useDashboards = (uid?: string) =>
-  useAsync<Dashboard[]>(() => (uid ? repo.listDashboards(uid) : Promise.resolve([])), [uid]);
-export const useDashboard = (id?: string) =>
-  useAsync<Dashboard | null>(() => (id ? repo.getDashboard(id) : Promise.resolve(null)), [id]);
-export const useDashboardSeries = (id?: string) =>
-  useAsync<Record<string, SeriesPoint[]>>(() => (id ? repo.getDashboardSeries(id) : Promise.resolve({})), [id]);
-export const useHabitLogs = (id?: string) =>
-  useAsync<Record<string, Record<string, HabitLog>>>(() => (id ? repo.getHabitLogs(id) : Promise.resolve({})), [id]);
-export const useNsv = (id?: string) =>
-  useAsync<Record<string, Nsv[]>>(() => (id ? repo.listNsv(id) : Promise.resolve({})), [id]);
-export const useInvites = (email?: string | null) =>
-  useAsync<Invite[]>(() => (email ? repo.listInvites(email) : Promise.resolve([])), [email]);
-export const useNotifications = (uid?: string) =>
-  useAsync<Notification[]>(() => (uid ? repo.listNotifications(uid) : Promise.resolve([])), [uid]);
+
+export const useWeights = (uid?: string): AsyncResult<WeightEntry[]> => {
+  const query = useQuery<WeightEntry[]>({
+    queryKey: ['weights', uid],
+    queryFn: () => repo.listWeights(uid!),
+    enabled: !!uid,
+  });
+  return toAsyncResult(query, []);
+};
+
+export const useDashboards = (uid?: string): AsyncResult<Dashboard[]> => {
+  const query = useQuery<Dashboard[]>({
+    queryKey: ['dashboards', uid],
+    queryFn: () => repo.listDashboards(uid!),
+    enabled: !!uid,
+  });
+  return toAsyncResult(query, []);
+};
+
+export const useDashboard = (id?: string): AsyncResult<Dashboard | null> => {
+  const query = useQuery<Dashboard | null>({
+    queryKey: ['dashboard', id],
+    queryFn: () => repo.getDashboard(id!),
+    enabled: !!id,
+  });
+  return toAsyncResult(query, null);
+};
+
+export const useDashboardSeries = (id?: string): AsyncResult<Record<string, SeriesPoint[]>> => {
+  const query = useQuery<Record<string, SeriesPoint[]>>({
+    queryKey: ['series', id],
+    queryFn: () => repo.getDashboardSeries(id!),
+    enabled: !!id,
+  });
+  return toAsyncResult(query, {});
+};
+
+export const useHabitLogs = (id?: string): AsyncResult<Record<string, Record<string, HabitLog>>> => {
+  const query = useQuery<Record<string, Record<string, HabitLog>>>({
+    queryKey: ['habitLogs', id],
+    queryFn: () => repo.getHabitLogs(id!),
+    enabled: !!id,
+  });
+  return toAsyncResult(query, {});
+};
+
+export const useNsv = (id?: string): AsyncResult<Record<string, Nsv[]>> => {
+  const query = useQuery<Record<string, Nsv[]>>({
+    queryKey: ['nsv', id],
+    queryFn: () => repo.listNsv(id!),
+    enabled: !!id,
+  });
+  return toAsyncResult(query, {});
+};
+
+export const useInvites = (email?: string | null): AsyncResult<Invite[]> => {
+  const query = useQuery<Invite[]>({
+    queryKey: ['invites', email],
+    queryFn: () => repo.listInvites(email!),
+    enabled: !!email,
+  });
+  return toAsyncResult(query, []);
+};
+
+export const useNotifications = (uid?: string): AsyncResult<Notification[]> => {
+  const query = useQuery<Notification[]>({
+    queryKey: ['notifications', uid],
+    queryFn: () => repo.listNotifications(uid!),
+    enabled: !!uid,
+  });
+  return toAsyncResult(query, []);
+};
+
+// A dashboard owner's own outgoing invites (ShareModal's "pending" list) —
+// distinct from useInvites, which lists invites addressed to the current user.
+export const useOutgoingInvites = (dashboardId?: string): AsyncResult<Invite[]> => {
+  const query = useQuery<Invite[]>({
+    queryKey: ['outgoingInvites', dashboardId],
+    queryFn: () => repo.listOutgoing(dashboardId!),
+    enabled: !!dashboardId,
+  });
+  return toAsyncResult(query, []);
+};
+
+// The world-readable snapshot behind a public share link (see PublicView.jsx).
+export const usePublicView = (token?: string): AsyncResult<PublicView | null> => {
+  const query = useQuery<PublicView | null>({
+    queryKey: ['publicView', token],
+    queryFn: () => repo.getPublicView(token!),
+    enabled: !!token,
+  });
+  return toAsyncResult(query, null);
+};

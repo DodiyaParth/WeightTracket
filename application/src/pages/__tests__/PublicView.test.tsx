@@ -4,7 +4,7 @@ import { Routes, Route } from 'react-router-dom';
 import { renderWithRouter, userEvent } from '../../test/test-utils.jsx';
 
 let asyncState;
-vi.mock('../../hooks/useData.js', () => ({ useAsync: () => asyncState }));
+vi.mock('../../hooks/useData.js', () => ({ usePublicView: () => asyncState }));
 vi.mock('../../components/DashboardBody.jsx', () => ({ default: () => <div>BODY</div> }));
 
 import PublicView from '../PublicView.jsx';

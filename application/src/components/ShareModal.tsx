@@ -4,10 +4,12 @@ import Modal, { Confirm } from './Modal.jsx';
 import Icon, { Avatar } from './Icon.jsx';
 import { RoleBadge, SegRadio, Toggle } from './ui.jsx';
 import { useAuthedUser } from '../auth/useAuthedUser.js';
-import { useAsync } from '../hooks/useData.js';
-import { useAsyncAction } from '../hooks/useAsyncAction.js';
-import { repo } from '../data/repo.js';
+import { useOutgoingInvites } from '../hooks/useData.js';
+import {
+  useUpdateMemberRole, useRemoveMember, useCancelInvite, useCreateInvite, useSetPublicLink,
+} from '../hooks/mutations.js';
 import { memberList } from '../lib/dashboards.js';
+import { initials } from '../lib/colors.js';
 import type { Dashboard, Invite, Profile, Role } from '../types.js';
 
 const ROLE_OPTIONS: [Role, string][] = [['editor', 'Can edit'], ['viewer', 'Read only']];
@@ -22,13 +24,16 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
   const nav = useNavigate();
   const user = useAuthedUser();
   const d = dashboard;
-  const { data: outgoing } = useAsync(() => repo.listOutgoing(d.id), [d.id]);
+  const { data: outgoing } = useOutgoingInvites(d.id);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('editor');
   const [copied, setCopied] = useState(false);
   const [revoke, setRevoke] = useState(false);
-  const { run: runInvite, busy: inviting, error: inviteError } = useAsyncAction();
-  const { run: runShare, busy: shareBusy, error: shareError } = useAsyncAction();
+  const { run: runInvite, busy: inviting, error: inviteError } = useCreateInvite();
+  const { run: runShare, busy: shareBusy, error: shareError } = useSetPublicLink();
+  const { run: runUpdateRole } = useUpdateMemberRole();
+  const { run: runRemoveMember } = useRemoveMember();
+  const { run: runCancelInvite } = useCancelInvite();
   const [busyUid, setBusyUid] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
   const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
@@ -51,7 +56,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
     setBusyUid(uid);
     setRowError(null);
     try {
-      await repo.updateMemberRole(d.id, uid, to);
+      await runUpdateRole(d.id, uid, to);
       setConfirmRole(null);
     } catch {
       setRowError('Couldn’t update that member’s role — try again.');
@@ -65,7 +70,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
     setBusyUid(uid);
     setRowError(null);
     try {
-      await repo.removeMember(d.id, uid);
+      await runRemoveMember(d.id, uid);
       setConfirmRemove(null);
     } catch {
       setRowError('Couldn’t remove that member — try again.');
@@ -78,7 +83,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
     setBusyInviteId(id);
     setRowError(null);
     try {
-      await repo.cancelInvite(id);
+      await runCancelInvite(id);
       setConfirmCancel(null);
     } catch {
       setRowError('Couldn’t cancel that invite — try again.');
@@ -89,13 +94,13 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
   const invite = async () => {
     if (!email.trim()) return;
     try {
-      await runInvite(() => repo.createInvite(d.id, { fromUid: user.uid, fromName: user.displayName || 'A teammate', toEmail: email.trim(), role }));
+      await runInvite(d.id, { fromUid: user.uid, fromName: user.displayName || 'A teammate', toEmail: email.trim(), role });
     } catch { return; }
     setEmail('');
   };
-  const enableLink = async () => { try { await runShare(() => repo.setPublicLink(d.id, true)); } catch { /* surfaced via shareError */ } };
+  const enableLink = async () => { try { await runShare(d.id, true); } catch { /* surfaced via shareError */ } };
   const confirmRevoke = async () => {
-    try { await runShare(() => repo.setPublicLink(d.id, false)); } catch { return; }
+    try { await runShare(d.id, false); } catch { return; }
     setRevoke(false);
   };
 
@@ -128,7 +133,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
             ))}
             {pending.map((i) => (
               <div key={i.id} className="invite-card outbound">
-                <Avatar size={32} color="var(--p4)">{i.fromInitial || '✉'}</Avatar>
+                <Avatar size={32} color="var(--p4)">{i.fromName ? initials(i.fromName) : '✉'}</Avatar>
                 <div className="grow"><div style={{ fontWeight: 600 }}>{i.toEmail}</div><div className="muted small">Invited · waiting to accept</div></div>
                 <span className="pill gray">Pending</span>
                 <button className="btn ghost sm" disabled={busyInviteId === i.id} onClick={() => setConfirmCancel(i)}>{busyInviteId === i.id ? 'Cancelling…' : 'Cancel'}</button>

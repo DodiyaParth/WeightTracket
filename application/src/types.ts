@@ -47,8 +47,12 @@ export interface EnrichedMember extends Member {
   initial: string;
 }
 
+// No stored `startKg`: a goal's starting weight is never written by the UI
+// (GoalEditor saves only targetKg/targetISO), so keeping it out of the
+// persisted shape means there's only one source of truth for it — the
+// person's first weigh-in (see DashboardBody.tsx goalFor) — instead of a
+// snapshot that could silently drift from that value over time.
 export interface Goal {
-  startKg?: number | null;
   targetKg?: number | null;
   targetISO?: string | null;
 }
@@ -83,15 +87,19 @@ export type NsvMap = Record<string, Record<string, Nsv[]>>;
 export interface Invite {
   id: string;
   dashboardId: string;
+  // `dashboardName` and `fromName` are required denormalization, not
+  // avoidable duplication: the invitee has no read access to the dashboard
+  // doc or the inviter's profile until they accept, so there is no live
+  // source to join against at render time (unlike e.g. EnrichedMember, which
+  // always re-derives from a readable profile). `fromInitial` was dropped —
+  // it was always exactly `initials(fromName)`, recomputed at render instead.
   dashboardName: string;
   fromUid: string;
   fromName: string;
-  fromInitial?: string;
   toEmail: string;
   role: Role;
   status: 'pending' | 'accepted' | 'declined';
   createdAt: number;
-  members?: number;
 }
 
 export interface Notification {

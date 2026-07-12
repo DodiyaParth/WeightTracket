@@ -3,7 +3,16 @@
 import { sortEntries, trendSeries, spanDays } from './stats.js';
 import { verdictVsIdeal } from './health.js';
 import { addDays } from './date.js';
-import type { SeriesPoint, Goal } from '../types.js';
+import type { SeriesPoint } from '../types.js';
+
+// The resolved goal shape computeState needs: unlike the persisted `Goal`
+// (types.ts), `startKg` here is always the caller's already-resolved
+// baseline (first weigh-in), never a stored, driftable snapshot.
+interface ResolvedGoalInput {
+  startKg?: number | null;
+  targetKg?: number | null;
+  targetISO?: string | null;
+}
 
 export type MotivState = 'onTrack' | 'ahead' | 'behind' | 'plateau' | 'regain' | 'milestone';
 
@@ -65,7 +74,7 @@ export function milestoneProgress(startKg: number, currentKg: number): number {
 //  - otherwise pace vs ideal: ahead / behind / onTrack
 export function computeState({ entries, goal, alpha, milestoneJustHit = false }: {
   entries?: SeriesPoint[];
-  goal?: Goal | null;
+  goal?: ResolvedGoalInput | null;
   alpha?: number;
   milestoneJustHit?: boolean;
 } = {}): MotivState {

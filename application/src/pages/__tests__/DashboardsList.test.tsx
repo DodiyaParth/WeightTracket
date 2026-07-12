@@ -112,7 +112,7 @@ describe('DashboardsList', () => {
   });
 
   it('accepts and declines pending invites', async () => {
-    invitesData = [{ id: 'inv1', fromName: 'Arjun', fromInitial: 'A', dashboardName: 'Office crew', role: 'editor', members: 4 }];
+    invitesData = [{ id: 'inv1', fromName: 'Arjun', dashboardName: 'Office crew', role: 'editor' }];
     renderList();
     expect(screen.getByText(/invited you to/)).toBeInTheDocument();
 
@@ -149,16 +149,15 @@ describe('DashboardsList — branch coverage', () => {
     expect(screen.queryByText('CREATE MODAL')).not.toBeInTheDocument();
   });
 
-  it('renders a viewer invite with no member count', () => {
-    invitesData = [{ id: 'inv2', fromName: 'Bob', fromInitial: 'B', dashboardName: 'Solo', role: 'viewer' }];
+  it('renders a viewer-role invite', () => {
+    invitesData = [{ id: 'inv2', fromName: 'Bob', dashboardName: 'Solo', role: 'viewer' }];
     renderList();
     expect(screen.getByText(/you.ll be a viewer/)).toBeInTheDocument();
-    expect(screen.queryByText(/people ·/)).not.toBeInTheDocument();
   });
 
   it('surfaces a row error when accepting an invite fails', async () => {
     acceptInvite.mockRejectedValueOnce(new Error('accept nope'));
-    invitesData = [{ id: 'inv3', fromName: 'Cara', fromInitial: 'C', dashboardName: 'Crew', role: 'editor', members: 3 }];
+    invitesData = [{ id: 'inv3', fromName: 'Cara', dashboardName: 'Crew', role: 'editor' }];
     renderList();
     await userEvent.click(screen.getByRole('button', { name: /accept/i }));
     expect(await screen.findByText(/Couldn.t accept that invite/)).toBeInTheDocument();

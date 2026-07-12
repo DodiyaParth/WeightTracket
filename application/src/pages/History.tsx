@@ -6,8 +6,7 @@ import { RetryCard, SegRadio } from '../components/ui.jsx';
 import { useQuickLog } from '../components/QuickLog.jsx';
 import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useWeights } from '../hooks/useData.js';
-import { useAsyncAction } from '../hooks/useAsyncAction.js';
-import { repo } from '../data/repo.js';
+import { useDeleteWeight } from '../hooks/mutations.js';
 import { todayISO, fmtLong } from '../lib/date.js';
 import { fmtKg } from '../lib/format.js';
 import type { WeightEntry } from '../types.js';
@@ -106,11 +105,11 @@ export default function History() {
   const [view, setView] = useState('list');
   const [month, setMonth] = useState(() => monthKey(todayISO()));
   const [del, setDel] = useState<WeightEntry | null>(null);
-  const { run: runDelete, busy: deleting, error: deleteError } = useAsyncAction();
+  const { run: runDelete, busy: deleting, error: deleteError } = useDeleteWeight();
 
   const byDate = useMemo(() => new Map((entries || []).map((e): [string, WeightEntry] => [e.date, e])), [entries]);
   const confirmDelete = async (entry: WeightEntry) => {
-    try { await runDelete(() => repo.deleteWeight(user.uid, entry.id)); } catch { return; }
+    try { await runDelete(user.uid, entry.id); } catch { return; }
     setDel(null);
   };
 

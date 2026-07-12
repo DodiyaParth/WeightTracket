@@ -6,8 +6,7 @@ import HabitsSection from './HabitsSection.jsx';
 import { useQuickLog } from './QuickLog.jsx';
 import { Confirm } from './Modal.jsx';
 import { ChangeText } from './ui.jsx';
-import { repo } from '../data/repo.js';
-import { useAsyncAction } from '../hooks/useAsyncAction.js';
+import { useAddNsv, useDeleteNsv } from '../hooks/mutations.js';
 import { memberList } from '../lib/dashboards.js';
 import { summarize, currentWeight, spanDays, togetherChange, type Summary, type Projection } from '../lib/stats.js';
 import { computeState, STATUS, milestones, milestoneProgress } from '../lib/motivation.js';
@@ -24,7 +23,10 @@ type ResolvedGoal = { startKg: number | null; targetKg: number | null; targetISO
 function goalFor(dashboard: Dashboard, series: Record<string, SeriesPoint[]>, uid: string): ResolvedGoal {
   const g: Goal = dashboard.goals?.[uid] || {};
   const entries = series[uid] || [];
-  const startKg = g.startKg ?? entries[0]?.kg ?? null;
+  // No stored startKg (see types.ts Goal) — the baseline is always the
+  // person's first weigh-in, so it can never drift from what's actually on
+  // the chart.
+  const startKg = entries[0]?.kg ?? null;
   return { startKg, targetKg: g.targetKg ?? null, targetISO: g.targetISO ?? null };
 }
 
@@ -174,18 +176,18 @@ function Wins({ dashboard, focusId, notes, canAdd }: WinsProps) {
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Nsv | null>(null);
-  const { run, busy, error } = useAsyncAction();
-  const { run: runDelete, busy: deleteBusy, error: deleteError } = useAsyncAction();
+  const { run, busy, error } = useAddNsv();
+  const { run: runDelete, busy: deleteBusy, error: deleteError } = useDeleteNsv();
   const save = async () => {
     if (!text.trim()) return;
     try {
-      await run(() => repo.addNsv(dashboard.id, focusId, { date: todayISO(), text: text.trim() }));
+      await run(dashboard.id, focusId, { date: todayISO(), text: text.trim() });
     } catch { return; }
     setText(''); setAdding(false);
   };
   const confirmDelete = async (target: Nsv) => {
     try {
-      await runDelete(() => repo.deleteNsv(dashboard.id, target.id));
+      await runDelete(dashboard.id, target.id);
     } catch { return; }
     setDeleteTarget(null);
   };

@@ -7,8 +7,7 @@ import { Toast } from '../components/ui.jsx';
 import { useQuickLog } from '../components/QuickLog.jsx';
 import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useWeights } from '../hooks/useData.js';
-import { useAsyncAction } from '../hooks/useAsyncAction.js';
-import { repo } from '../data/repo.js';
+import { useAddWeight, useAddWeights, useDeleteWeight } from '../hooks/mutations.js';
 import { todayISO, addDays, fmtLong, fmtDate, DATE_FORMATS, parseDate } from '../lib/date.js';
 import { parseCsv, detectColumns, suggestDateFormat, buildImport, parseWeightValue, TEMPLATE_CSV, type DetectedColumns } from '../lib/csv.js';
 import { fmtKg } from '../lib/format.js';
@@ -29,13 +28,13 @@ interface Batch {
 // what happens to the rest (DEV-11, user spec point 2).
 function useBatchImport(uid: string, existing: WeightEntry[]) {
   const [batch, setBatch] = useState<Batch | null>(null);
-  const { run, busy, error } = useAsyncAction();
+  const { run, busy, error } = useAddWeights();
 
   const start = async (incoming: IncomingEntry[], onDone: (r: ImportOutcome) => void) => {
     const { fresh, unchanged, conflicting } = classifyEntries(incoming, existing);
     let savedFresh = 0;
     try {
-      if (fresh.length) savedFresh = await run(() => repo.addWeights(uid, fresh));
+      if (fresh.length) savedFresh = await run(uid, fresh);
     } catch { return; }
     if (unchanged.length || conflicting.length) setBatch({ savedFresh, unchanged, conflicting, onDone });
     else onDone({ saved: savedFresh, skipped: 0 });
@@ -44,7 +43,7 @@ function useBatchImport(uid: string, existing: WeightEntry[]) {
     if (busy || !batch) return;
     const b = batch;
     try {
-      await run(() => repo.addWeights(uid, b.conflicting));
+      await run(uid, b.conflicting);
     } catch { return; }
     b.onDone({ saved: b.savedFresh + b.conflicting.length, skipped: b.unchanged.length });
     setBatch(null);
@@ -112,11 +111,11 @@ function Single({ uid, existing, onToast }: TabProps) {
   const [note, setNote] = useState('');
   const [info, setInfo] = useState<{ kg: number; again: boolean } | null>(null);
   const [conflict, setConflict] = useState<{ kg: number; prevKg: number; again: boolean } | null>(null);
-  const { run, busy, error } = useAsyncAction();
+  const { run, busy, error } = useAddWeight();
 
   const doSave = async (v: number, again: boolean) => {
     try {
-      await run(() => repo.addWeight(uid, { date, kg: v, note }));
+      await run(uid, { date, kg: v, note });
     } catch { return; }
     onToast(`Logged ${fmtKg(v)} kg · ${fmtLong(date)}`);
     setKg(''); setNote('');
@@ -373,10 +372,10 @@ export default function AddWeight() {
   const [del, setDel] = useState<WeightEntry | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const quick = useQuickLog();
-  const { run: runDelete, busy: deleting, error: deleteError } = useAsyncAction();
+  const { run: runDelete, busy: deleting, error: deleteError } = useDeleteWeight();
   const onToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2400); };
   const confirmDelete = async (entry: WeightEntry) => {
-    try { await runDelete(() => repo.deleteWeight(user.uid, entry.id)); } catch { return; }
+    try { await runDelete(user.uid, entry.id); } catch { return; }
     setDel(null);
     onToast('Entry deleted');
   };

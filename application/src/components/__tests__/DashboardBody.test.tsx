@@ -31,7 +31,7 @@ const dashboard = {
   id: 'd1', name: 'Parth & Priya', ownerUid: 'parth',
   members: { parth: { uid: 'parth', role: 'owner', joinedAt: 1 }, priya: { uid: 'priya', role: 'editor', joinedAt: 2 } },
   trackedUids: ['parth', 'priya'],
-  goals: { parth: { startKg: 88, targetKg: 80, targetISO: '2026-12-31' } },
+  goals: { parth: { targetKg: 80, targetISO: '2026-12-31' } },
   teamGoal: { label: 'Lose 15 together', target: 15 },
   habits: [],
 };
@@ -128,18 +128,18 @@ function renderCustom(props) {
 
 describe('DashboardBody — pacing & projection branches', () => {
   it('flags a faster-than-safe weekly pace', () => {
-    renderCustom({ dashboard: solo({ me: { startKg: 90, targetKg: 70, targetISO: '2028-01-01' } }), series: { me: makeSeries(90, 30).map((e, i) => ({ ...e, kg: +(90 - i * 0.6).toFixed(1) })) } });
+    renderCustom({ dashboard: solo({ me: { targetKg: 70, targetISO: '2028-01-01' } }), series: { me: makeSeries(90, 30).map((e, i) => ({ ...e, kg: +(90 - i * 0.6).toFixed(1) })) } });
     expect(screen.getByText('faster than safe pace')).toBeInTheDocument();
   });
 
   it('shows "No estimate" when the trend is flat / moving away', () => {
-    renderCustom({ dashboard: solo({ me: { startKg: 85, targetKg: 80, targetISO: '2026-02-15' } }), series: { me: makeFlat(85, 30) } });
+    renderCustom({ dashboard: solo({ me: { targetKg: 80, targetISO: '2026-02-15' } }), series: { me: makeFlat(85, 30) } });
     expect(screen.getByText('No estimate')).toBeInTheDocument();
     expect(screen.getAllByText(/trend moving away/).length).toBeGreaterThan(0);
   });
 
   it('locks the projection with fewer than 14 days of data', () => {
-    renderCustom({ dashboard: solo({ me: { startKg: 85, targetKg: 80 } }), series: { me: makeSeries(85, 8) } });
+    renderCustom({ dashboard: solo({ me: { targetKg: 80 } }), series: { me: makeSeries(85, 8) } });
     expect(screen.getAllByText('need more data').length).toBeGreaterThan(0);
   });
 });
@@ -160,7 +160,7 @@ describe('DashboardBody — goal rows & team goal branches', () => {
   });
 
   it('renders a team goal with a zero target (0% progress)', () => {
-    renderCustom({ dashboard: solo({ me: { startKg: 85, targetKg: 80 } }, { label: 'Team', target: 0 }), series: { me: makeSeries(85, 20) } });
+    renderCustom({ dashboard: solo({ me: { targetKg: 80 } }, { label: 'Team', target: 0 }), series: { me: makeSeries(85, 20) } });
     expect(screen.getByText(/Team goal · Team/)).toBeInTheDocument();
   });
 });
@@ -179,7 +179,7 @@ describe('DashboardBody — focus and wins branches', () => {
   });
 
   it('ignores an empty win, saves on Enter, and surfaces a save error', async () => {
-    renderCustom({ dashboard: solo({ me: { startKg: 85, targetKg: 80 } }), series: { me: makeSeries(85, 20) } });
+    renderCustom({ dashboard: solo({ me: { targetKg: 80 } }), series: { me: makeSeries(85, 20) } });
     await userEvent.click(screen.getByRole('button', { name: /^Add$/i }));
     // empty text → Save is a no-op
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));

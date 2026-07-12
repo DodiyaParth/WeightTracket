@@ -5,8 +5,7 @@ import { Toast } from './ui.jsx';
 import { useDialogA11y, Confirm } from './Modal.jsx';
 import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useWeights } from '../hooks/useData.js';
-import { useAsyncAction } from '../hooks/useAsyncAction.js';
-import { repo } from '../data/repo.js';
+import { useAddWeight, useUpdateWeight, useDeleteWeight } from '../hooks/mutations.js';
 import { todayISO, addDays, fmtLong } from '../lib/date.js';
 import { fmtKg } from '../lib/format.js';
 import { classifyEntries } from '../lib/collisions.js';
@@ -45,7 +44,13 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }: QuickL
   const [showNote, setShowNote] = useState(!!entry?.note);
   const [info, setInfo] = useState<{ kg: number; prevKg?: number } | null>(null);
   const [conflict, setConflict] = useState<{ kg: number; prevKg: number } | null>(null);
-  const { run, busy, error } = useAsyncAction();
+  const { run: runAdd, busy: addBusy, error: addError } = useAddWeight();
+  const { run: runUpdate, busy: updateBusy, error: updateError } = useUpdateWeight();
+  const { run: runDelete, busy: deleteBusy, error: deleteError } = useDeleteWeight();
+  // Only one of add/update/delete is ever in flight at once from this modal,
+  // so combining their busy/error is equivalent to a single shared action state.
+  const busy = addBusy || updateBusy || deleteBusy;
+  const error = addError || updateError || deleteError;
   const weightRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -61,7 +66,7 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }: QuickL
 
   const doSave = async (kg: number) => {
     try {
-      await run(() => (entryId ? repo.updateWeight(uid, entryId, { kg, note, date }) : repo.addWeight(uid, { date, kg, note })));
+      await (entryId ? runUpdate(uid, entryId, { kg, note, date }) : runAdd(uid, { date, kg, note }));
     } catch { return; }
     onSaved(`${editing ? 'Updated' : 'Logged'} ${fmtKg(kg)} kg · ${fmtLong(date)}`);
     onClose();
@@ -80,7 +85,7 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }: QuickL
   };
   const del = async () => {
     if (busy || !entryId) return;
-    try { await run(() => repo.deleteWeight(uid, entryId)); } catch { return; }
+    try { await runDelete(uid, entryId); } catch { return; }
     onSaved('Entry deleted');
     onClose();
   };

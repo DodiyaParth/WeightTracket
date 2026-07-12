@@ -1,16 +1,15 @@
 // In-memory backend (demo mode + reference implementation). Same async API as
 // the Firestore backend. Weight series for a dashboard are derived from each
 // member's canonical weights, so logging a weigh-in reflects everywhere.
-import { bus } from './bus.js';
 import { buildSeed } from './seed.js';
 import { todayISO } from '../lib/date.js';
-import { initials } from '../lib/colors.js';
 import { memberList } from '../lib/dashboards.js';
 import { applyAutoGrace } from '../lib/habits.js';
 import type {
   AuthUser, Dashboard, HabitLog, HabitMark, Invite, Nsv, Notification, Profile,
   PublicLink, PublicMember, PublicView, Role, SeriesPoint, WeightEntry,
 } from '../types.js';
+import type { DataRepo } from './DataRepo.js';
 
 let store = buildSeed();
 export function _resetStore() { store = buildSeed(); } // for tests
@@ -18,7 +17,6 @@ export function _resetStore() { store = buildSeed(); } // for tests
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 const rid = (p = 'id'): string => `${p}_${Math.random().toString(36).slice(2, 9)}`;
 const ok = <T = void>(v?: T): Promise<T> => Promise.resolve(v as T);
-const changed = () => bus.emit();
 
 const trackedSeries = (uid: string): SeriesPoint[] => (store.weights[uid] || []).map((e) => ({ date: e.date, kg: e.kg }));
 const bumpForUser = (uid: string): void => {
@@ -52,7 +50,6 @@ export function ensureProfile(authUser: AuthUser): Promise<Profile> {
 // every view re-derives name/height/etc. live on its next fetch.
 export function updateProfile(uid: string, patch: Partial<Profile>): Promise<void> {
   store.profiles[uid] = { ...store.profiles[uid], ...patch };
-  changed();
   return ok();
 }
 
@@ -66,7 +63,6 @@ export function addWeight(uid: string, { date, kg, note = '' }: { date: string; 
   if (existing) { existing.kg = +kg; existing.note = note; }
   else store.weights[uid].push({ id: rid('w'), date, kg: +kg, note });
   bumpForUser(uid);
-  changed();
   return ok();
 }
 
@@ -78,7 +74,6 @@ export function addWeights(uid: string, entries: Array<{ date: string; kg: numbe
     else store.weights[uid].push({ id: rid('w'), date: e.date, kg: +e.kg, note: e.note || '' });
   });
   bumpForUser(uid);
-  changed();
   return ok(entries.length);
 }
 
@@ -92,14 +87,12 @@ export function updateWeight(uid: string, id: string, patch: Partial<WeightEntry
   }
   Object.assign(e, patch);
   bumpForUser(uid);
-  changed();
   return ok();
 }
 
 export function deleteWeight(uid: string, id: string): Promise<void> {
   store.weights[uid] = (store.weights[uid] || []).filter((w) => w.id !== id && w.date !== id);
   bumpForUser(uid);
-  changed();
   return ok();
 }
 
@@ -124,21 +117,18 @@ export function createDashboard(uid: string, { name, teamGoalLabel, teamGoalTarg
     public: { enabled: false, token: null },
   };
   store.dashboards.unshift(d);
-  changed();
   return ok(clone(d));
 }
 
 export function updateDashboard(id: string, patch: Partial<Dashboard>): Promise<void> {
   const d = store.dashboards.find((x) => x.id === id);
   if (d) { Object.assign(d, patch); d.updatedAt = Date.now(); }
-  changed();
   return ok();
 }
 
 export function updateMemberRole(id: string, uid: string, role: Role): Promise<void> {
   const d = store.dashboards.find((x) => x.id === id);
   if (d?.members?.[uid]) { d.members[uid].role = role; d.updatedAt = Date.now(); }
-  changed();
   return ok();
 }
 
@@ -151,7 +141,6 @@ export function removeMember(id: string, uid: string): Promise<void> {
     d.trackedUids = d.trackedUids.filter((u) => u !== uid);
     d.updatedAt = Date.now();
   }
-  changed();
   return ok();
 }
 
@@ -159,7 +148,6 @@ export function deleteDashboard(id: string): Promise<void> {
   store.dashboards = store.dashboards.filter((x) => x.id !== id);
   delete store.habitLogs[id];
   delete store.nsv[id];
-  changed();
   return ok();
 }
 
@@ -185,7 +173,6 @@ export function setHabitMark(id: string, uid: string, habitId: string, date: str
   } else delete store.habitLogs[id][uid][habitId][date];
   const d = store.dashboards.find((x) => x.id === id);
   if (d) d.updatedAt = Date.now();
-  changed();
   return ok();
 }
 
@@ -198,7 +185,6 @@ export function addNsv(id: string, uid: string, { date, text }: { date?: string 
   store.nsv[id][uid].unshift({ id: rid('nsv'), date: date || todayISO(), text });
   const d = store.dashboards.find((x) => x.id === id);
   if (d) d.updatedAt = Date.now();
-  changed();
   return ok();
 }
 
@@ -207,7 +193,6 @@ export function deleteNsv(dashboardId: string, noteId: string): Promise<void> {
   Object.keys(byUid).forEach((uid) => { byUid[uid] = byUid[uid].filter((n) => n.id !== noteId); });
   const d = store.dashboards.find((x) => x.id === dashboardId);
   if (d) d.updatedAt = Date.now();
-  changed();
   return ok();
 }
 
@@ -220,9 +205,8 @@ export const listOutgoing = (dashboardId: string): Promise<Invite[]> =>
 
 export function createInvite(dashboardId: string, { fromUid, fromName, toEmail, role }: { fromUid: string; fromName: string; toEmail: string; role?: Role }): Promise<Invite> {
   const d = store.dashboards.find((x) => x.id === dashboardId);
-  const inv: Invite = { id: rid('inv'), dashboardId, dashboardName: d?.name || 'a dashboard', fromUid, fromName, fromInitial: initials(fromName), toEmail, role: role || 'editor', status: 'pending', createdAt: Date.now() };
+  const inv: Invite = { id: rid('inv'), dashboardId, dashboardName: d?.name || 'a dashboard', fromUid, fromName, toEmail, role: role || 'editor', status: 'pending', createdAt: Date.now() };
   store.invites.push(inv);
-  changed();
   return ok(clone(inv));
 }
 
@@ -245,20 +229,17 @@ export function acceptInvite(inviteId: string, authUser: AuthUser): Promise<void
   d.members[authUser.uid] = { uid: authUser.uid, role: inv.role, joinedAt: Date.now() };
   if (!d.trackedUids.includes(authUser.uid)) d.trackedUids.push(authUser.uid);
   d.updatedAt = Date.now();
-  changed();
   return ok();
 }
 
 export function declineInvite(inviteId: string): Promise<void> {
   const inv = store.invites.find((i) => i.id === inviteId);
   if (inv) inv.status = 'declined';
-  changed();
   return ok();
 }
 
 export function cancelInvite(inviteId: string): Promise<void> {
   store.invites = store.invites.filter((i) => i.id !== inviteId);
-  changed();
   return ok();
 }
 
@@ -268,7 +249,6 @@ export function setPublicLink(dashboardId: string, enabled: boolean): Promise<Pu
   if (!d) return ok({ enabled: false, token: null });
   d.public = enabled ? { enabled: true, token: d.public?.token || rid('tok') } : { enabled: false, token: null };
   d.updatedAt = Date.now();
-  changed();
   return ok(clone(d.public));
 }
 
@@ -302,3 +282,17 @@ export function listNotifications(uid: string): Promise<Notification[]> {
   out.push({ id: 'n_welcome', text: 'Welcome to WeightTracker.', sub: 'Log your weight and start a shared dashboard.', when: Date.now() - 3 * 86400000, unread: false });
   return ok(out);
 }
+
+// Compile-time proof this module mirrors the same contract as firestore.ts
+// (see repo.ts) — either backend drifting from `DataRepo`'s shape now fails
+// `tsc` instead of surfacing as a runtime bug in production or tests only.
+export const _dataRepoConformance = {
+  getProfile, getProfiles, ensureProfile, updateProfile,
+  listWeights, addWeight, addWeights, updateWeight, deleteWeight,
+  listDashboards, getDashboard, createDashboard, updateDashboard, updateMemberRole, removeMember, deleteDashboard, getDashboardSeries,
+  getHabitLogs, setHabitMark,
+  listNsv, addNsv, deleteNsv,
+  listInvites, listOutgoing, createInvite, acceptInvite, declineInvite, cancelInvite,
+  setPublicLink, getPublicView,
+  listNotifications,
+} satisfies DataRepo;
