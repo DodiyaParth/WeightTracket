@@ -1,16 +1,26 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import Icon, { Logo } from './Icon.jsx';
 import UserAvatar from './UserAvatar.jsx';
 import { useQuickLog } from './QuickLog.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { useAuthedUser } from '../auth/useAuthedUser.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 import { useDashboards, useNotifications } from '../hooks/useData.js';
 import { recents, isEditable, colorForMember } from '../lib/dashboards.js';
 import { firstNameOf } from '../lib/user.js';
 import { fmtDate } from '../lib/date.js';
 
-function Sidebar() {
+interface SidebarProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+// Same markup at every viewport (Bootstrap-style): on mobile, CSS turns this
+// into an off-canvas drawer (see styles.css's @media block) that Layout
+// opens/closes via `open`; on desktop `open` is inert (the drawer is
+// always-on, non-off-canvas) so nothing here needs to branch on viewport.
+function Sidebar({ open, onClose }: SidebarProps) {
   const nav = useNavigate();
   const loc = useLocation();
   const { signOutUser } = useAuth();
@@ -20,9 +30,9 @@ function Sidebar() {
   const rec = recents(dashboards || [], user.uid);
 
   return (
-    <aside className="sidebar">
+    <aside className={'sidebar' + (open ? ' open' : '')}>
       <div className="brand"><Logo size={30} /><span>WeightTracker</span></div>
-      <nav className="nav">
+      <nav className="nav" onClick={onClose}>
         <NavLink to="/" end className={({ isActive }) => 'nav-item' + (isActive ? ' active' : '')}>
           {({ isActive }) => (<><Icon name="chart" color={isActive ? 'var(--accent-dark)' : 'var(--text-2)'} /><span>Dashboards</span></>)}
         </NavLink>
@@ -49,15 +59,15 @@ function Sidebar() {
       </nav>
 
       <div className="nav-spacer" />
-      <div className="nav-user" style={{ cursor: 'pointer' }} onClick={() => nav('/profile')} role="button" tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nav('/profile'); } }}>
+      <div className="nav-user" style={{ cursor: 'pointer' }} onClick={() => { onClose(); nav('/profile'); }} role="button" tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose(); nav('/profile'); } }}>
         <UserAvatar user={user} size={38} />
         <div className="col" style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
           <span className="name">{user.displayName || firstNameOf(null, user.email)}</span>
           <span className="sub" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</span>
         </div>
         <button className="icon-btn ghost-ib" style={{ width: 32, height: 32 }} title="Sign out" aria-label="Sign out"
-          onClick={(e) => { e.stopPropagation(); signOutUser(); }}>
+          onClick={(e) => { e.stopPropagation(); onClose(); signOutUser(); }}>
           <Icon name="logout" color="var(--muted)" />
         </button>
       </div>
@@ -99,16 +109,33 @@ interface TopbarProps {
   title?: ReactNode;
   sub?: ReactNode;
   primary?: ReactNode;
+  menuOpen?: boolean;
+  onMenuClick?: () => void;
 }
 
-export function Topbar({ title, sub, primary }: TopbarProps) {
+export function Topbar({ title, sub, primary, menuOpen, onMenuClick }: TopbarProps) {
   const quick = useQuickLog();
   const action = primary === undefined
     ? <button className="btn primary" onClick={() => quick.open()}><Icon name="plus" color="#fff" />Log my weight</button>
     : primary;
   return (
     <div className="topbar">
-      <div><h1>{title}</h1>{sub && <div className="sub">{sub}</div>}</div>
+      <div className="row topbar-title" style={{ gap: 14 }}>
+        {/* CSS-only on desktop (see styles.css) — only meaningful once a
+            handler is wired up, i.e. inside Layout's own Topbar render. */}
+        {onMenuClick && (
+          <button
+            type="button"
+            className="hamburger icon-btn"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            onClick={onMenuClick}
+          >
+            <Icon name={menuOpen ? 'close' : 'menu'} />
+          </button>
+        )}
+        <div><h1>{title}</h1>{sub && <div className="sub">{sub}</div>}</div>
+      </div>
       <div className="topbar-actions">
         <Bell />
         {action}
@@ -125,11 +152,33 @@ interface LayoutProps {
 }
 
 export default function Layout({ title, sub, primary, children }: LayoutProps) {
+  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const closeDrawer = (): void => setDrawerOpen(false);
+
+  // A resize/rotation past the breakpoint shouldn't leave the drawer's state
+  // stuck "open" for when the viewport shrinks back below it later.
+  useEffect(() => {
+    if (!isMobile) setDrawerOpen(false);
+  }, [isMobile]);
+
+  // Escape closes the drawer like any other dismissible overlay in the app
+  // (see Modal.tsx) — only listening while it's actually open.
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setDrawerOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawerOpen]);
+
   return (
     <div className="app">
-      <Sidebar />
+      {drawerOpen && <div className="sidebar-scrim" onClick={closeDrawer} />}
+      <Sidebar open={drawerOpen} onClose={closeDrawer} />
       <div className="main">
-        <Topbar title={title} sub={sub} primary={primary} />
+        <Topbar title={title} sub={sub} primary={primary} menuOpen={drawerOpen} onMenuClick={() => setDrawerOpen((o) => !o)} />
         <div className="content">{children}</div>
       </div>
     </div>

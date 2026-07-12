@@ -55,7 +55,7 @@ export default function CreateDashboard({ onClose }: { onClose: () => void }) {
         {showInvite ? (
           <div>
             <label className="field-label">Invite someone <span className="muted" style={{ fontWeight: 400 }}>· optional</span></label>
-            <div className="row" style={{ gap: 10 }}>
+            <div className="row invite-row" style={{ gap: 10 }}>
               <input className="input" placeholder="name@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
               <SegRadio value={role} onChange={setRole} options={ROLE_OPTIONS} ariaLabel="Invite access level" />
             </div>

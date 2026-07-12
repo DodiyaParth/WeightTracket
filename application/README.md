@@ -7,6 +7,8 @@ from the designer's prototype in [`../design`](../design) (designer-owned — no
 > **Status: Milestones 1–4 built.** Login + auth shell, personal data & weight entry (single / bulk /
 > CSV), shared dashboards + invites, sharing (account read/edit **and** no-login read-only link),
 > dashboard charts (Chart.js), per-person motivation engine, daily habits + streaks, goals & safety.
+> The UI is responsive down to phone widths (off-canvas nav drawer, collapsing grids/tables) — see
+> "End-to-end tests" below for how that's verified in real browsers.
 
 ## Quick start
 
@@ -27,14 +29,15 @@ The app always talks to real Firestore — sign in with Google or email/password
 default account seeded with a rich demo world (Parth & Priya + a wider cast) for quickly looking at a
 populated dashboard: run `npm run seed` once (see below) and sign in with its printed credentials.
 
-There is no offline/demo mode — `memory.js` + `seed.js` still exist, but only as the backend used by
-the unit tests (`npm test`), not by the running app.
+There is no offline/demo mode for regular dev/production use — `memory.ts` + `seed.ts` are the backend
+used by the unit tests (`npm test`), and are also what the Playwright e2e suite runs against (see below)
+so it doesn't need a real Firebase project.
 
 ### Seeding the default account
 
 ```bash
 cd application
-npm run seed     # needs application/serviceAccount.json — see scripts/seed-firestore.mjs
+npm run seed     # needs application/serviceAccount.json — see scripts/seed-firestore.ts
 ```
 
 Downloads-and-writes are one-time setup: get a service account key from Firebase console → Project
@@ -55,19 +58,20 @@ src/
     dashboards.js   access model (owner/editor/viewer), recents, post-login landing
     csv.js          format-flexible CSV import (papaparse + detection)
     __tests__/      Vitest specs covering the above
-  data/           Repository pattern:
-    repo.js         always resolves to the Firestore backend
-    firestore.js    Firestore backend (production — the only one the app uses)
-    memory.js       in-memory backend — unit-test-only, not wired into repo.js
-    seed.js         seed data — used by tests directly, and by scripts/seed-firestore.mjs
-    bus.js          change bus → hooks refetch after mutations
+  data/           Repository pattern (see DataRepo.ts for the shared interface):
+    repo.ts         Firestore in production; swaps to the memory backend under
+                     Vite's "e2e" mode (see "End-to-end tests" below)
+    firestore.ts    Firestore backend (production)
+    memory.ts       in-memory backend — used by unit tests directly, and by
+                     repo.ts under e2e mode
+    seed.ts         seed data — used by tests directly, and by scripts/seed-firestore.ts
   hooks/useData.js  useProfile / useWeights / useDashboards / useDashboard / ...
   auth/             AuthContext (Google + email/password sign-in, redirect fallback), ProtectedRoute
   components/       Layout, Chart (Chart.js), DashboardBody, QuickLog, ShareModal,
                     GoalEditor, DashSettings, MotivationCard, HabitsSection, CreateDashboard, ...
   pages/            Login, DashboardsList, DashboardDetail, AddWeight, Profile, PublicView
 scripts/
-  seed-firestore.mjs  Admin SDK script — seeds the default account (see "Seeding" above)
+  seed-firestore.ts  Admin SDK script — seeds the default account (see "Seeding" above)
 ```
 
 The heavy, bug-prone logic is **pure and unit-tested**; Firebase is a thin I/O layer.
@@ -96,6 +100,48 @@ reads a `publicViews/{token}` snapshot (REQUIREMENTS §3.4).
 3. **Authorized domains**: Authentication → Settings → add your GitHub Pages domain. `localhost` is
    already allowed for dev.
 
+## End-to-end tests (Playwright)
+
+Unit tests run in jsdom, which never applies CSS — so responsive/layout changes can only really be
+verified by rendering the app in a real browser at real viewport sizes. That's what
+[`playwright.config.ts`](playwright.config.ts) + [`e2e/`](e2e/) are for.
+
+```bash
+npm run test:e2e       # headless, all projects (desktop, mobile, mobile-safari)
+npm run test:e2e:ui    # Playwright's interactive UI mode — good for debugging one spec
+```
+
+The suite starts its **own** dev server on a dedicated port (5182, so it never collides with a
+`npm run dev` session you already have open on 5181), with Vite's `mode` set to `"e2e"`. That one flag
+does two things (see `data/repo.ts` + `auth/AuthContext.tsx`):
+
+- `repo` resolves to the **in-memory backend** (`data/memory.ts` + `data/seed.ts`) instead of Firestore.
+- `AuthContext` starts already signed in as the seed's "parth" user — no real Google/email sign-in flow.
+
+So every spec runs fully offline, with no Firebase project, credentials, or network access needed.
+`vite build`'s default mode (`"production"`) never takes this branch.
+
+**What's covered:**
+
+- `smoke.spec.ts` — the offline harness itself: landing redirect, every protected route reachable, the
+  public (no-login) link.
+- `mobile-nav.spec.ts` — the off-canvas nav drawer (open/close via hamburger, scrim, Escape, nav click).
+- `dashboard-detail.spec.ts`, `list-history-profile.spec.ts`, `addweight.spec.ts`,
+  `modals-and-public.spec.ts` — per-area "no horizontal overflow at phone widths" + layout-collapse
+  assertions (stacked grids, wrapped rows, etc.) across all three Playwright projects.
+- `visual.spec.ts` — pixel-diff baselines (`toHaveScreenshot`) for `desktop` + `mobile` only (chromium
+  engines; `mobile-safari`/webkit has its own font rendering and isn't included in these, though it's
+  still covered by every functional spec above). The clock is frozen (`page.clock.setFixedTime`) before
+  navigating on data-heavy pages, since the seed data is generated relative to "now" and would otherwise
+  drift the screenshots every day. **Snapshots are platform-specific** (checked in under
+  `e2e/visual.spec.ts-snapshots/`, generated on macOS/arm64) — regenerate on a different OS with
+  `npx playwright test e2e/visual.spec.ts --update-snapshots`. CI (`.github/workflows/ci.yml`, Linux)
+  skips this one spec for that reason and runs everything else.
+
+Kept out of the pre-commit hook (see `.husky/pre-commit`) — it's already a full typecheck + coverage
+run on every commit, and spinning up a browser on top of that would make commits noticeably slower.
+Run `test:e2e` manually, or rely on CI.
+
 ## Deploy (GitHub Pages)
 
 `npm run build` → push `dist/` to your Pages branch (or use an action). `vite.config.js` uses
@@ -105,6 +151,8 @@ reads a `publicViews/{token}` snapshot (REQUIREMENTS §3.4).
 
 - **Verified:** unit tests pass; production build is clean; email/password and Google sign-in both work
   against real Firestore; every screen renders end-to-end (login, dashboards list, dashboard interior +
-  chart, add weight, profile, public view); the quick-log write path works.
+  chart, add weight, profile, public view); the quick-log write path works; every screen is responsive
+  down to phone widths with no horizontal overflow, verified in real chromium + webkit browsers (see
+  "End-to-end tests" above).
 - **Needs live verification with two accounts:** multi-account collaboration (invite/accept, role
   changes, the `firestore.rules` self-join clause) — see `../documents/app-feedback-phases.md` Phase 3.

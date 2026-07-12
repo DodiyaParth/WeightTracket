@@ -9,6 +9,7 @@
     "preview": "npm --prefix application run preview",
     "test": "npm --prefix application run test",
     "test:coverage": "npm --prefix application run test:coverage",
+    "test:e2e": "npm --prefix application run test:e2e",
     "typecheck": "npm --prefix application run typecheck",
     "seed": "npm --prefix application run seed",
     "setup": "npm install && npm --prefix application install",

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -41,6 +42,9 @@ export default defineConfig({
     globals: true,
     setupFiles: './src/test/setup.ts',
     css: false,
+    // Playwright owns e2e/** (see playwright.config.ts) — keep the two
+    // runners from ever picking up each other's spec files.
+    exclude: [...configDefaults.exclude, 'e2e/**'],
     // Force Firebase "unconfigured" during tests so nothing tries to reach a
     // real backend (application/.env.local carries live keys for dev). Tests
     // that need data mock the repo/hooks instead.

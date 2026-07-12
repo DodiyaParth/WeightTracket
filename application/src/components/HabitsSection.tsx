@@ -109,13 +109,19 @@ function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, setHabi
               ) : (
                 <span style={{ flex: 1, fontWeight: 500 }}>{h.label}</span>
               )}
-              <span className="muted small">🔥 {streak} day{repaired ? ' · repaired' : ''}</span>
-              {!readOnly && !editing && (
-                <span className="row" style={{ gap: 2 }}>
-                  <button className="icon-btn ghost-ib" title="Rename" aria-label={`Rename ${h.label}`} onClick={() => startEdit(h)}><Icon name="edit" size={14} color="var(--muted)" /></button>
-                  <button className="icon-btn ghost-ib" title="Delete" aria-label={`Delete ${h.label}`} onClick={() => setDeleteTarget(h)}><Icon name="trash" size={14} color="var(--muted)" /></button>
-                </span>
-              )}
+              {/* Grouped so mobile CSS can force this trailing chunk onto its
+                  own line as a unit, right-aligned, instead of depending on
+                  a flex:1 sibling's wrap behavior (which differs enough
+                  across engines to still overflow on some). */}
+              <span className="habit-row-meta">
+                <span className="muted small">🔥 {streak} day{repaired ? ' · repaired' : ''}</span>
+                {!readOnly && !editing && (
+                  <span className="row" style={{ gap: 2 }}>
+                    <button className="icon-btn ghost-ib" title="Rename" aria-label={`Rename ${h.label}`} onClick={() => startEdit(h)}><Icon name="edit" size={14} color="var(--muted)" /></button>
+                    <button className="icon-btn ghost-ib" title="Delete" aria-label={`Delete ${h.label}`} onClick={() => setDeleteTarget(h)}><Icon name="trash" size={14} color="var(--muted)" /></button>
+                  </span>
+                )}
+              </span>
             </div>
             {failedId === h.id && <span className="small" style={{ color: 'var(--rose)', marginLeft: 40 }}>Couldn’t save — try again.</span>}
             {editing && editError && <span className="small" style={{ color: 'var(--rose)', marginLeft: 40 }}>{editError}</span>}
@@ -205,14 +211,20 @@ function StreakGrid({ members, habits, logs, meUid, readOnly, dashboardId, teamL
                 <span className="row" style={{ gap: 8 }}><span>{h.emoji}</span><span style={{ fontWeight: 500 }}>{h.label}</span></span>
                 {repaired ? <span className="pill amber">streak repaired</span> : <span className="muted small">🔥 {currentStreak(logs[streakUid]?.[h.id] || {})} day streak</span>}
               </div>
-              <div className="streak-grid" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
-                {days.map((date) => {
-                  const k = cellKind(h, date);
-                  const key = `${h.id}_${date}`;
-                  return canEdit
-                    ? <button key={date} className={cls(k)} disabled={pendingKey === key} style={{ border: 0, padding: 0, cursor: 'pointer' }} onClick={() => toggleCell(h, date)} aria-label={date} />
-                    : <span key={date} className={cls(k)} title={date} />;
-                })}
+              {/* Cells have a floor width (see .streak-grid's minWidth below) so
+                  they stay tappable at 28 days instead of shrinking to
+                  illegible slivers — the wrapper scrolls horizontally once
+                  that floor no longer fits the viewport. */}
+              <div className="streak-grid-wrap">
+                <div className="streak-grid" style={{ gridTemplateColumns: `repeat(${n}, 1fr)`, minWidth: n * 18 }}>
+                  {days.map((date) => {
+                    const k = cellKind(h, date);
+                    const key = `${h.id}_${date}`;
+                    return canEdit
+                      ? <button key={date} className={cls(k)} disabled={pendingKey === key} style={{ border: 0, padding: 0, cursor: 'pointer' }} onClick={() => toggleCell(h, date)} aria-label={date} />
+                      : <span key={date} className={cls(k)} title={date} />;
+                  })}
+                </div>
               </div>
             </div>
           );

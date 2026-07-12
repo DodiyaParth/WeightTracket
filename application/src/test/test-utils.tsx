@@ -2,7 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
 
 // Render a component inside a router and a fresh QueryClient (mutation hooks
 // in hooks/mutations.js need one; retry:false matches main.tsx and keeps
@@ -43,6 +43,61 @@ export const mockAuth = (overrides = {}) => ({
   signOutUser: vi.fn(),
   ...overrides,
 });
+
+// A controllable stand-in for window.matchMedia, for tests that touch
+// useIsMobile()/responsive UI. test/setup.ts installs a fixed
+// (matches: false) stub globally — this swaps it out for the duration of one
+// test and restores the original via `afterEach`, so later tests keep
+// getting the desktop-default stub. Call `.change(matches)` on the return
+// value to simulate a viewport resize/rotation.
+export function mockMatchMedia(matches, query = '(max-width: 768px)') {
+  let current = matches;
+  const listeners = [];
+  const mql = {
+    get matches() {
+      return current;
+    },
+    media: query,
+    onchange: null,
+    addEventListener: (_type, cb) => listeners.push(cb),
+    removeEventListener: (_type, cb) => {
+      const i = listeners.indexOf(cb);
+      if (i >= 0) listeners.splice(i, 1);
+    },
+    addListener: (cb) => listeners.push(cb),
+    removeListener: (cb) => {
+      const i = listeners.indexOf(cb);
+      if (i >= 0) listeners.splice(i, 1);
+    },
+    dispatchEvent: () => false,
+    change(next) {
+      current = next;
+      listeners.forEach((cb) => cb({ matches: next }));
+    },
+  };
+
+  const original = window.matchMedia;
+  window.matchMedia = vi.fn().mockReturnValue(mql);
+  afterEach(() => {
+    window.matchMedia = original;
+  });
+
+  return mql;
+}
+
+// Convenience wrappers for the common case of "render this once at a fixed
+// viewport class" — most Layout/drawer tests don't need to simulate a resize
+// mid-test, so they just want the mobile or desktop matchMedia answer from
+// the very first render.
+export function renderMobile(ui, opts = {}) {
+  mockMatchMedia(true);
+  return renderWithRouter(ui, opts);
+}
+
+export function renderDesktop(ui, opts = {}) {
+  mockMatchMedia(false);
+  return renderWithRouter(ui, opts);
+}
 
 export * from '@testing-library/react';
 // Re-export directly from the source module. A local `import ... ; export { userEvent }`

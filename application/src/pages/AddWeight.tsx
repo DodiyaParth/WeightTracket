@@ -213,26 +213,28 @@ function Bulk({ uid, existing, onToast }: TabProps) {
     <div className="card">
       <div className="card-title">Backfill past entries</div>
       <p className="t2 small" style={{ marginTop: 4 }}>Catch up on the last week or two of your own weigh-ins. Leave blanks for missed days — gaps are fine.</p>
-      <table className="tbl" style={{ marginTop: 8 }}>
-        <thead><tr><th>Date</th><th>Weight (kg)</th><th>Note</th></tr></thead>
-        <tbody>
-          {rows.map((r) => {
-            const invalid = !!r.kg && Number.isNaN(weightOf(r));
-            return (
-              <tr key={r.id}>
-                <td style={{ width: 130 }}>{fmtLong(r.date)}</td>
-                <td style={{ width: 150 }}>
-                  <input className="input" inputMode="decimal" placeholder="—" value={r.kg} disabled={busy}
-                    style={invalid ? { borderColor: 'var(--rose)' } : undefined}
-                    aria-invalid={invalid} onChange={(e) => setRow(r.id, { kg: e.target.value })} />
-                  {invalid && <span className="small" style={{ color: 'var(--rose)' }}>Not a number</span>}
-                </td>
-                <td><input className="input" placeholder="—" value={r.note} disabled={busy} onChange={(e) => setRow(r.id, { note: e.target.value })} /></td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="tbl-wrap">
+        <table className="tbl" style={{ marginTop: 8 }}>
+          <thead><tr><th>Date</th><th>Weight (kg)</th><th>Note</th></tr></thead>
+          <tbody>
+            {rows.map((r) => {
+              const invalid = !!r.kg && Number.isNaN(weightOf(r));
+              return (
+                <tr key={r.id}>
+                  <td style={{ width: 130 }}>{fmtLong(r.date)}</td>
+                  <td style={{ width: 150 }}>
+                    <input className="input" inputMode="decimal" placeholder="—" value={r.kg} disabled={busy}
+                      style={invalid ? { borderColor: 'var(--rose)' } : undefined}
+                      aria-invalid={invalid} onChange={(e) => setRow(r.id, { kg: e.target.value })} />
+                    {invalid && <span className="small" style={{ color: 'var(--rose)' }}>Not a number</span>}
+                  </td>
+                  <td><input className="input" placeholder="—" value={r.note} disabled={busy} onChange={(e) => setRow(r.id, { note: e.target.value })} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       {invalidCount > 0 && <p className="small" style={{ color: 'var(--rose)', marginTop: 8 }}>{invalidCount} row{invalidCount > 1 ? 's' : ''} won’t be saved — fix the highlighted weight{invalidCount > 1 ? 's' : ''}.</p>}
       <div className="row" style={{ gap: 10, marginTop: 16 }}>
         <button className="btn ghost" disabled={busy} onClick={() => setRows((r) => {
@@ -341,17 +343,19 @@ function Csv({ uid, existing, onToast }: TabProps) {
           <label className="field-label" style={{ marginTop: 16 }}>Date format <span className="muted" style={{ fontWeight: 400 }}>· detected {labelFor(detectedFmt)} — confirm or override</span></label>
           <div className="fmt-opts">{DATE_FORMATS.map(([k, l]) => (<button key={k} className={'toggle' + (fmt === k ? ' on' : '')} onClick={() => setFmtOverride(k)}><span style={{ width: 8, height: 8, borderRadius: 8, background: fmt === k ? 'var(--accent)' : 'var(--muted)' }} />{l}</button>))}</div>
           <label className="field-label" style={{ marginTop: 18 }}>Preview · first rows</label>
-          <table className="tbl">
-            <thead><tr><th>From file</th><th>Date</th><th>Weight</th><th /></tr></thead>
-            <tbody>{preview.map((r, i) => (
-              <tr key={i} className={r.ok ? '' : 'bad'}>
-                <td className="muted">{r.rawDate}</td>
-                <td>{r.date ? fmtLong(r.date) : '—'}</td>
-                <td>{r.kg != null ? `${fmtKg(r.kg)} kg` : '—'}</td>
-                <td style={{ textAlign: 'right' }}>{r.ok ? <Icon name="check" size={16} color="var(--accent)" /> : <span className="pill amber">{r.reason}</span>}</td>
-              </tr>
-            ))}</tbody>
-          </table>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>From file</th><th>Date</th><th>Weight</th><th /></tr></thead>
+              <tbody>{preview.map((r, i) => (
+                <tr key={i} className={r.ok ? '' : 'bad'}>
+                  <td className="muted">{r.rawDate}</td>
+                  <td>{r.date ? fmtLong(r.date) : '—'}</td>
+                  <td>{r.kg != null ? `${fmtKg(r.kg)} kg` : '—'}</td>
+                  <td style={{ textAlign: 'right' }}>{r.ok ? <Icon name="check" size={16} color="var(--accent)" /> : <span className="pill amber">{r.reason}</span>}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
           {result.duplicates > 0 && <div className="row-warn" style={{ marginTop: 12 }}><Icon name="warn" size={16} color="#b9742a" />{result.duplicates} repeated date{result.duplicates > 1 ? 's were' : ' was'} merged — the last value in the file wins.</div>}
           {result.bad.length > 0 && <div className="row-warn" style={{ marginTop: 12 }}><Icon name="warn" size={16} color="#b9742a" />{result.bad.length} row{result.bad.length > 1 ? 's' : ''} couldn’t be imported. Fix the file or change the date format above.</div>}
           {error && <p className="small" style={{ color: 'var(--rose)', marginTop: 12 }}>{error}</p>}

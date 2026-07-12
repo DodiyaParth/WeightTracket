@@ -26,12 +26,32 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// True only under Vite's "e2e" mode (see playwright.config.ts), so the e2e
+// suite can drive every authenticated screen offline, without real Firebase
+// credentials. Mirrors the memory-backend swap in data/repo.ts — same
+// literal-string-mode reasoning applies (dead-code-eliminated from real
+// builds). Never true in the Vitest env (mode is 'test' there), so these
+// branches are excluded from the coverage gate below.
+const isE2E = import.meta.env.MODE === 'e2e';
+
+// uid must match data/seed.ts's DEMO_UID so repo.ensureProfile(E2E_USER)
+// resolves to the pre-seeded "Parth" profile instead of minting a blank one.
+const E2E_USER: AuthUser = { uid: 'parth', displayName: 'Parth', email: 'parth@weighttracker.app', photoURL: null };
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(isFirebaseConfigured);
+  /* v8 ignore next */
+  const [user, setUser] = useState<AuthUser | null>(isE2E ? E2E_USER : null);
+  /* v8 ignore next */
+  const [loading, setLoading] = useState(isE2E ? false : isFirebaseConfigured);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    /* v8 ignore start */
+    if (isE2E) {
+      setLoading(false);
+      return undefined;
+    }
+    /* v8 ignore stop */
     if (!auth) {
       setLoading(false);
       return undefined;
@@ -108,7 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo(
-    () => ({ user, loading, error, configured: isFirebaseConfigured, signInWithGoogle, signInWithEmail, signUpWithEmail, signOutUser }),
+    /* v8 ignore next */
+    () => ({ user, loading, error, configured: isE2E ? true : isFirebaseConfigured, signInWithGoogle, signInWithEmail, signUpWithEmail, signOutUser }),
     [user, loading, error]
   );
 

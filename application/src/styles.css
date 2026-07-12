@@ -81,6 +81,9 @@ button { font-family: inherit; cursor: pointer; }
 .topbar h1 { font-size: 24px; font-weight: 600; margin: 0; }
 .topbar .sub { font-size: 13.5px; color: var(--text-2); margin-top: 4px; }
 .topbar-actions { display: flex; align-items: center; gap: 12px; }
+/* Only meaningful once the sidebar can go off-canvas — see the
+   (max-width: 768px) block below, which is the only place this flips on. */
+.hamburger { display: none; }
 .content { padding: 8px 40px 48px; display: flex; flex-direction: column; gap: 26px; }
 .content-2col { display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start; }
 
@@ -223,15 +226,23 @@ button { font-family: inherit; cursor: pointer; }
 /* habits */
 .habit-row { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
 .habit-row:last-child { border-bottom: 0; }
+.habit-row-meta { display: flex; align-items: center; gap: 14px; flex: none; }
 .habit-check { width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--border-strong);
   display: flex; align-items: center; justify-content: center; color: #fff; flex: none; }
 .habit-check.on { background: var(--accent); border-color: var(--accent); }
+/* Scrolls horizontally rather than squeezing cells below a tappable size —
+   see HabitsSection.tsx's per-render minWidth on .streak-grid itself. Safe
+   at any viewport: no scrollbar appears at all once the grid already fits. */
+.streak-grid-wrap { overflow-x: auto; }
 .streak-grid { display: grid; grid-template-columns: repeat(28, 1fr); gap: 4px; }
 .streak-cell { aspect-ratio: 1; border-radius: 3px; background: var(--track); }
 .streak-cell.on { background: var(--accent); }
 .streak-cell.on.l2 { opacity: 0.55; }
 
 /* table */
+/* Same reasoning as .streak-grid-wrap above — scrolls instead of squeezing
+   the Date/Weight/Note (or CSV preview) columns unreadably narrow. */
+.tbl-wrap { overflow-x: auto; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .tbl th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600;
   padding: 8px 10px; border-bottom: 1px solid var(--border); }
@@ -490,3 +501,113 @@ button { font-family: inherit; cursor: pointer; }
 /* screen-reader-only text alternative (e.g. the chart's summary) */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
   clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* ============================================================
+   RESPONSIVE — same markup at every viewport (Bootstrap-style):
+   these blocks only ever override, never replace, the rules above.
+   One block per breakpoint tier, appended to as later phases cover
+   more of the app; kept in this one place instead of scattered
+   per-rule so the full set of overrides for a given width is easy
+   to scan. See components/Layout.tsx for the one bit of JS this
+   needs (the off-canvas drawer's open/close state).
+   ============================================================ */
+@media (max-width: 768px) {
+  /* ---- app shell: sidebar becomes an off-canvas drawer ---- */
+  .hamburger { display: inline-flex; }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 56;
+    width: min(280px, 82vw);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-out;
+    box-shadow: 0 12px 32px rgba(20, 30, 40, 0.18);
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .sidebar-scrim {
+    position: fixed; inset: 0; z-index: 55;
+    background: rgba(20, 28, 36, 0.34);
+  }
+
+  .main { width: 100%; }
+  .topbar { padding: 16px 16px 14px; flex-wrap: wrap; row-gap: 10px; }
+  .content { padding: 8px 16px 32px; }
+
+  /* Bell is now the first item in .topbar-actions' own wrapped row (see
+     above), near the LEFT edge — anchoring by `right` (as on desktop, where
+     Bell sits near the right edge) would push most of the dropdown off the
+     left side of the screen. Anchor by `left` instead and cap the width to
+     the viewport so it can't overflow either edge. */
+  .dropdown { left: 0; right: auto; width: min(320px, calc(100vw - 32px)); }
+
+  /* PublicView has no Layout/sidebar of its own — same shell-padding
+     treatment as .topbar/.content above, plus letting its header wrap
+     like .topbar does (dashboard name + tag on one line, avatars + sign-in
+     button below, once they no longer fit side by side). */
+  .public-top { padding: 14px 16px; flex-wrap: wrap; row-gap: 10px; }
+  .public-body { padding: 16px 16px 32px; }
+
+  /* The title and the action-button cluster each get their own full-width
+     row instead of splitting one row and forcing the title to wrap into a
+     ransom-note column (the default behavior once .topbar-actions'
+     intrinsic width — Share/Log-my-weight/settings/avatars — leaves it too
+     little space). See pages/DashboardDetail.tsx for the worst case. */
+  .topbar-title { flex: 1 1 100%; }
+  .topbar-actions { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; }
+
+  /* ---- dashboard detail / DashboardBody ---- */
+  /* minmax(0, 1fr), not bare 1fr: a plain `1fr` track's *minimum* is "auto"
+     (i.e. it still won't shrink below its widest child's min-content width).
+     If any descendant can't wrap (see .habit-row below), that silently grows
+     the whole column/card back out past the viewport — the exact same class
+     of bug .main's min-width:0 already guards against for flex. Every grid
+     collapsed to 1 column below uses minmax(0, ...) for that reason. */
+  .content-2col { grid-template-columns: minmax(0, 1fr); }
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* ---- dashboards list ---- */
+  .grid-3 { grid-template-columns: minmax(0, 1fr); }
+  .section-head { flex-wrap: wrap; gap: 6px; }
+
+  /* ---- add-weight / habits ---- */
+  /* Drops the minmax(420px, 560px) left column that guaranteed overflow on
+     every phone; "Recent entries" now sits below the active tab's card. */
+  .addweight-grid { grid-template-columns: minmax(0, 1fr); }
+  /* Also collapses HabitsSection's Checklist+StreakGrid pair, and (as a
+     welcome side effect) GoalEditor/CreateDashboard's .grid-2 usage — ahead
+     of Phase 6 formally covering the rest of the modals. */
+  .grid-2 { grid-template-columns: minmax(0, 1fr); }
+
+  /* An unwrapped row's children (check + emoji + label + streak text +
+     rename/delete buttons) sum to more than a narrow phone's width, which —
+     since flex rows never shrink below that sum without wrapping — pushed
+     the whole card (and with it the page) wider than the viewport. Forcing
+     the trailing .habit-row-meta group onto its own full-width line (rather
+     than relying on flex-wrap redistributing individual items, which
+     behaves inconsistently across engines when a flex:1 sibling is involved)
+     fixes it deterministically. */
+  .habit-row { flex-wrap: wrap; }
+  .habit-row-meta { flex: 1 1 100%; justify-content: flex-end; margin-top: 4px; }
+}
+
+@media (max-width: 480px) {
+  .grid-4 { grid-template-columns: minmax(0, 1fr); }
+
+  /* Decline/Accept end up too cramped next to the avatar+text on very
+     narrow phones — give the button row its own line, right-aligned. */
+  .invite-card { flex-wrap: wrap; }
+  .invite-card > .row { flex: 1 1 100%; justify-content: flex-end; }
+
+  /* ShareModal's "Invite by email" and CreateDashboard's "Invite someone"
+     rows (email input + role SegRadio + button): the input's own `width:
+     100%` already claims a full line for itself once wrapping is allowed,
+     so the role picker + button naturally settle onto their own line below. */
+  .invite-row { flex-wrap: wrap; }
+
+  /* Stack modal footer buttons full-width rather than crowding two buttons
+     with longer labels (e.g. "Overwrite 3") onto one narrow row. */
+  .modal-foot { flex-direction: column-reverse; align-items: stretch; }
+  .modal-foot button { width: 100%; justify-content: center; }
+}

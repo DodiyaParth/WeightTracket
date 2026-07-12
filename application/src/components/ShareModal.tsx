@@ -145,7 +145,7 @@ export default function ShareModal({ dashboard, profiles = {}, onClose }: ShareM
 
         <div>
           <label className="field-label">Invite by email</label>
-          <div className="row" style={{ gap: 10 }}>
+          <div className="row invite-row" style={{ gap: 10 }}>
             <input className="input" placeholder="name@email.com" value={email} disabled={inviting} onChange={(e) => setEmail(e.target.value)} />
             <SegRadio value={role} disabled={inviting} onChange={setRole} options={ROLE_OPTIONS} ariaLabel="Invite access level" />
             <button className="btn primary" onClick={invite} disabled={inviting}>{inviting ? 'Inviting…' : 'Invite'}</button>

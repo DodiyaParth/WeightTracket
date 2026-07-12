@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
-import { renderWithRouter, userEvent } from '../../test/test-utils.jsx';
+import { screen, fireEvent, act } from '@testing-library/react';
+import { renderWithRouter, renderMobile, renderDesktop, mockMatchMedia, userEvent } from '../../test/test-utils.jsx';
 
 let authValue;
 let dashboardsData;
@@ -109,5 +109,82 @@ describe('Layout - branch coverage', () => {
     const userRow = screen.getByRole('button', { name: /Parth/ });
     fireEvent.keyDown(userRow, { key: 'Escape' });
     expect(userRow).toBeInTheDocument();
+  });
+});
+
+describe('Layout mobile drawer', () => {
+  const isOpen = (container) => container.querySelector('.sidebar').classList.contains('open');
+
+  it('starts closed and opens/closes via the hamburger', () => {
+    const { container } = renderMobile(<Layout title="X"><p>x</p></Layout>, { route: '/' });
+    expect(isOpen(container)).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(isOpen(container)).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close menu' }));
+    expect(isOpen(container)).toBe(false);
+  });
+
+  it('closes when the scrim behind it is clicked', () => {
+    const { container } = renderMobile(<Layout title="X"><p>x</p></Layout>, { route: '/' });
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(isOpen(container)).toBe(true);
+
+    fireEvent.click(container.querySelector('.sidebar-scrim'));
+    expect(isOpen(container)).toBe(false);
+  });
+
+  it('closes when a nav link inside it is clicked', () => {
+    const { container } = renderMobile(<Layout title="X"><p>x</p></Layout>, { route: '/' });
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(isOpen(container)).toBe(true);
+
+    fireEvent.click(screen.getByRole('link', { name: /History/ }));
+    expect(isOpen(container)).toBe(false);
+  });
+
+  it('closes when Escape is pressed, and ignores other keys', () => {
+    const { container } = renderMobile(<Layout title="X"><p>x</p></Layout>, { route: '/' });
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(isOpen(container)).toBe(true);
+
+    fireEvent.keyDown(window, { key: 'Shift' });
+    expect(isOpen(container)).toBe(true);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(isOpen(container)).toBe(false);
+  });
+
+  it('closes via the user row and the sign-out button', () => {
+    const { container } = renderMobile(<Layout title="X"><p>x</p></Layout>, { route: '/' });
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    fireEvent.click(screen.getByRole('button', { name: /Parth/ }));
+    expect(isOpen(container)).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    expect(isOpen(container)).toBe(false);
+    expect(authValue.signOutUser).toHaveBeenCalled();
+  });
+
+  it('force-closes if the viewport grows past the breakpoint while open', () => {
+    const mql = mockMatchMedia(true);
+    const { container } = renderWithRouter(<Layout title="X"><p>x</p></Layout>, { route: '/' });
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(isOpen(container)).toBe(true);
+
+    act(() => {
+      mql.change(false);
+    });
+    expect(isOpen(container)).toBe(false);
+  });
+
+  it('renders the hamburger on desktop too — CSS alone hides it there, not JS', () => {
+    // No conditional rendering by viewport: the same markup ships everywhere,
+    // and styles.css's (max-width: 768px) block is what actually hides this
+    // ≥769px. Confirms Phase 2 didn't accidentally branch the JSX on isMobile.
+    renderDesktop(<Layout title="X"><p>x</p></Layout>, { route: '/' });
+    expect(screen.getByRole('button', { name: 'Open menu' })).toBeInTheDocument();
   });
 });
