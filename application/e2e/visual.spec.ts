@@ -2,21 +2,19 @@ import { test, expect } from '@playwright/test';
 import { ROUTES, waitForAppReady, freezeClock } from './helpers.js';
 
 // Pixel-diff regression baselines for the responsive work in Phases 2-6.
-// Scoped to 'desktop' and 'mobile' (chromium-based) — skipping 'mobile-safari'
-// here because cross-engine font/AA rendering differs enough from chromium
-// to make a single shared tolerance either too loose or too flaky; webkit is
-// still fully covered by every *functional* overflow/layout assertion in the
-// other e2e/*.spec.ts files, just not by these pixel baselines.
+// Scoped to 'desktop' and 'mobile' (chromium-based) via this project's
+// per-project `testMatch` in playwright.config.ts, which intentionally
+// omits this file for 'mobile-safari' — cross-engine font/AA rendering
+// differs enough from chromium to make a single shared tolerance either
+// too loose or too flaky; webkit is still fully covered by every
+// *functional* overflow/layout assertion in the other e2e/*.spec.ts files,
+// just not by these pixel baselines.
 //
 // Caveat: snapshots are platform-specific (Playwright embeds the OS in the
 // filename). These were generated on macOS/arm64. Regenerate on a different
 // OS (e.g. in CI on Linux) with:
 //   npx playwright test e2e/visual.spec.ts --update-snapshots
 test.describe('visual baselines', () => {
-  test.beforeEach(async ({}, testInfo) => {
-    test.skip(testInfo.project.name === 'mobile-safari', 'chromium-only baselines; see file header');
-  });
-
   test('404 page', async ({ page }) => {
     // Static and auth-independent — no clock freeze needed.
     await page.goto('/#/this-page-does-not-exist');

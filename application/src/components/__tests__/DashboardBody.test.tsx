@@ -74,6 +74,22 @@ describe('DashboardBody', () => {
     expect(screen.getByText(/Add height in Profile/)).toBeInTheDocument();
   });
 
+  it('centers the BMI marker over its bar instead of hanging below it (DEV bug)', () => {
+    // Regression for the marker being anchored to a sibling `height: 0`
+    // container displaced by the column's `gap` — the marker must now live
+    // *inside* the bar's own box, centered on its 8px height.
+    renderBody();
+    const bar = document.querySelector('.bmi-bar') as HTMLElement;
+    expect(bar).toBeTruthy();
+    expect(bar.style.height).toBe('8px');
+    const marker = bar.querySelector('span') as HTMLElement;
+    expect(marker).toBeTruthy();
+    expect(marker.parentElement).toBe(bar);
+    expect(marker.style.height).toBe('14px');
+    // top = (barHeight - markerHeight) / 2 = (8 - 14) / 2 = -3px.
+    expect(marker.style.top).toBe('-3px');
+  });
+
   it('switches the focused person', async () => {
     renderBody();
     await userEvent.click(screen.getByRole('button', { name: /Priya/ }));
@@ -141,6 +157,16 @@ describe('DashboardBody — pacing & projection branches', () => {
   it('locks the projection with fewer than 14 days of data', () => {
     renderCustom({ dashboard: solo({ me: { targetKg: 80 } }), series: { me: makeSeries(85, 8) } });
     expect(screen.getAllByText('need more data').length).toBeGreaterThan(0);
+  });
+
+  it('prompts to set a goal instead of rendering a blank tile when no target is set (DEV bug)', () => {
+    // >=14 days + a losing trend + no targetKg: projection() reports status
+    // 'ok' with no rangeLabel (there's nothing to project a date toward) —
+    // the tile/panel must say so, not render empty.
+    renderCustom({ dashboard: solo({}), series: { me: makeSeries(90, 20) } });
+    expect(screen.getByText('set a goal')).toBeInTheDocument();
+    expect(screen.getByText('set a goal to see an estimate')).toBeInTheDocument();
+    expect(screen.queryByText('No estimate')).not.toBeInTheDocument();
   });
 });
 

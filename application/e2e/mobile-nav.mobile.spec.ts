@@ -3,11 +3,10 @@ import { ROUTES, waitForAppReady } from './helpers.js';
 
 // The off-canvas drawer (Phase 2) only exists below the 768px breakpoint —
 // on desktop the exact same <Sidebar/> markup renders permanently visible.
+// Scoped to the `mobile`/`mobile-safari` projects via playwright.config.ts's
+// per-project `testMatch`, so this never runs (and never shows as skipped)
+// on `desktop`.
 test.describe('mobile nav drawer', () => {
-  test.beforeEach(async ({}, testInfo) => {
-    test.skip(testInfo.project.name === 'desktop', 'the off-canvas drawer only exists at mobile widths');
-  });
-
   test('sidebar starts off-canvas and opens via the hamburger', async ({ page }) => {
     await page.goto(ROUTES.dashboard);
     await waitForAppReady(page);
@@ -57,19 +56,5 @@ test.describe('mobile nav drawer', () => {
 
     await page.keyboard.press('Escape');
     await expect(page.locator('.sidebar')).not.toHaveClass(/open/);
-  });
-});
-
-test.describe('desktop nav', () => {
-  test.beforeEach(async ({}, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'desktop-only: no drawer to open/close');
-  });
-
-  test('sidebar is always visible — no drawer needed', async ({ page }) => {
-    await page.goto(ROUTES.dashboard);
-    await waitForAppReady(page);
-
-    await expect(page.locator('.sidebar')).toBeInViewport();
-    await expect(page.getByRole('link', { name: /History/ })).toBeVisible();
   });
 });

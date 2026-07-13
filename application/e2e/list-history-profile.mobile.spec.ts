@@ -1,11 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { ROUTES, waitForAppReady, hasNoHorizontalOverflow } from './helpers.js';
 
+// Scoped to the `mobile`/`mobile-safari` projects via playwright.config.ts's
+// per-project `testMatch` — desktop keeps the multi-column layout, so this
+// never runs (and never shows as skipped) there.
 test.describe('mobile: dashboards list, history, profile', () => {
-  test.beforeEach(async ({}, testInfo) => {
-    test.skip(testInfo.project.name === 'desktop', 'these checks are about the mobile collapse; desktop keeps the multi-column layout');
-  });
-
   test('dashboards list fits the viewport, cards stack, and the invite row does not overflow', async ({ page }) => {
     // First visit this session redirects to the most-recently-active
     // dashboard (see App.tsx's Landing); the second visit shows the list.

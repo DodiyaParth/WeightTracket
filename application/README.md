@@ -123,12 +123,14 @@ So every spec runs fully offline, with no Firebase project, credentials, or netw
 
 **What's covered:**
 
-- `smoke.spec.ts` — the offline harness itself: landing redirect, every protected route reachable, the
-  public (no-login) link.
-- `mobile-nav.spec.ts` — the off-canvas nav drawer (open/close via hamburger, scrim, Escape, nav click).
-- `dashboard-detail.spec.ts`, `list-history-profile.spec.ts`, `addweight.spec.ts`,
-  `modals-and-public.spec.ts` — per-area "no horizontal overflow at phone widths" + layout-collapse
-  assertions (stacked grids, wrapped rows, etc.) across all three Playwright projects.
+- `smoke.all.spec.ts` — the offline harness itself: landing redirect, every protected route reachable,
+  the public (no-login) link. Runs on all three projects.
+- `mobile-nav.mobile.spec.ts` — the off-canvas nav drawer (open/close via hamburger, scrim, Escape, nav
+  click). `desktop-nav.desktop.spec.ts` — the desktop-only equivalent (sidebar always visible, no
+  drawer).
+- `dashboard-detail.mobile.spec.ts`, `list-history-profile.mobile.spec.ts`, `addweight.mobile.spec.ts`,
+  `modals-and-public.mobile.spec.ts` — per-area "no horizontal overflow at phone widths" +
+  layout-collapse assertions (stacked grids, wrapped rows, etc.), scoped to the phone projects.
 - `visual.spec.ts` — pixel-diff baselines (`toHaveScreenshot`) for `desktop` + `mobile` only (chromium
   engines; `mobile-safari`/webkit has its own font rendering and isn't included in these, though it's
   still covered by every functional spec above). The clock is frozen (`page.clock.setFixedTime`) before
@@ -138,9 +140,28 @@ So every spec runs fully offline, with no Firebase project, credentials, or netw
   `npx playwright test e2e/visual.spec.ts --update-snapshots`. CI (`.github/workflows/ci.yml`, Linux)
   skips this one spec for that reason and runs everything else.
 
+**Naming convention:** each spec's filename says which Playwright projects it targets —
+`*.all.spec.ts` (all three), `*.mobile.spec.ts` (`mobile` + `mobile-safari`), or `*.desktop.spec.ts`
+(`desktop` only). `playwright.config.ts` gives each project a matching `testMatch`, so e.g. a
+mobile-only spec is never even collected for `desktop` — it doesn't apply there, so it isn't scheduled,
+rather than being scheduled and reported as "skipped". `visual.spec.ts` keeps its plain name and is
+listed explicitly for `desktop`/`mobile` (see above for why `mobile-safari` is left off).
+
 Kept out of the pre-commit hook (see `.husky/pre-commit`) — it's already a full typecheck + coverage
 run on every commit, and spinning up a browser on top of that would make commits noticeably slower.
 Run `test:e2e` manually, or rely on CI.
+
+**Coverage scope:** `test:coverage` (Vitest + `@vitest/coverage-v8`, gated at 90% statements/branches,
+see below) measures only the jsdom unit-test suite in `src/**` — it does not include anything exercised
+solely by these Playwright specs, and there's no plan to merge the two into one number. They're
+deliberately separate: Vitest runs in jsdom with `test.css: false` (see above), so it can't see CSS/layout
+at all — that's exactly what this e2e suite exists to check instead. Collecting comparable coverage from
+real-browser Playwright runs would mean instrumenting a second, separately-built app (Chromium-only;
+`mobile-safari`/webkit has no practical V8-coverage story) and merging two differently-shaped coverage
+formats with a third-party tool (e.g. `monocart-coverage-reports`) — extra moving parts for a number that
+would mostly restate "the e2e suite ran," not surface new source lines the unit suite is missing. If a
+combined report is ever wanted, add it as a separate, non-gating artifact rather than folding it into the
+90/90 threshold Vitest already enforces.
 
 ## Deploy (GitHub Pages)
 

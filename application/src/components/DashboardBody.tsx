@@ -56,9 +56,14 @@ interface StatsPanelProps {
   verdict: string | null;
   verdictTone: string;
   away: boolean;
+  // False when the focused person has no targetKg set (see goalFor) — the
+  // projection math still runs (it also reports pure trend direction), but
+  // without a target there is nothing to project a date *toward*, so the
+  // tile/panel must say so explicitly instead of rendering a blank value.
+  hasGoal: boolean;
 }
 
-function StatTiles({ s, days, proj, verdict, verdictTone, away }: StatsPanelProps) {
+function StatTiles({ s, days, proj, verdict, verdictTone, away, hasGoal }: StatsPanelProps) {
   const lockProj = days < 14;
   const totalC = formatChange(s.total);
   const weeklyC = formatChange(s.weekly, { unit: 'kg/wk' });
@@ -70,14 +75,16 @@ function StatTiles({ s, days, proj, verdict, verdictTone, away }: StatsPanelProp
         pill={<span className={'pill ' + (isSafePace(s.weekly) ? '' : 'amber')} style={{ marginTop: 4, alignSelf: 'flex-start' }}>{isSafePace(s.weekly) ? 'within safe range' : 'faster than safe pace'}</span>} />
       {lockProj
         ? <Tile label="Projected goal" value="—" pill={<span className="pill gray" style={{ marginTop: 4, alignSelf: 'flex-start' }}>need more data</span>} />
-        : away || proj.status !== 'ok'
-          ? <Tile label="Projected goal" value="No estimate" pill={<span className="pill amber" style={{ marginTop: 4, alignSelf: 'flex-start' }}>trend moving away</span>} />
-          : <div className="card stat-tile"><span className="label">Projected goal</span><span style={{ fontSize: 18, fontWeight: 600 }}>{proj.rangeLabel}</span>{verdict && <span className={'small ' + verdictTone}>{verdict} vs ideal</span>}</div>}
+        : !hasGoal
+          ? <Tile label="Projected goal" value="—" pill={<span className="pill gray" style={{ marginTop: 4, alignSelf: 'flex-start' }}>set a goal</span>} />
+          : away || proj.status !== 'ok'
+            ? <Tile label="Projected goal" value="No estimate" pill={<span className="pill amber" style={{ marginTop: 4, alignSelf: 'flex-start' }}>trend moving away</span>} />
+            : <div className="card stat-tile"><span className="label">Projected goal</span><span style={{ fontSize: 18, fontWeight: 600 }}>{proj.rangeLabel}</span>{verdict && <span className={'small ' + verdictTone}>{verdict} vs ideal</span>}</div>}
     </div>
   );
 }
 
-function Progress({ s, days, proj, verdict, verdictTone, away }: StatsPanelProps) {
+function Progress({ s, days, proj, verdict, verdictTone, away, hasGoal }: StatsPanelProps) {
   return (
     <div className="card">
       <div className="card-title" style={{ marginBottom: 14 }}>Progress &amp; prediction</div>
@@ -96,9 +103,11 @@ function Progress({ s, days, proj, verdict, verdictTone, away }: StatsPanelProps
         <span className="t2 small">Projected goal date</span>
         {days < 14
           ? <span className="pill gray">need more data</span>
-          : away || proj.status !== 'ok'
-            ? <span className="pill amber">trend moving away — no estimate</span>
-            : <span><b>{proj.rangeLabel}</b>{verdict ? <> · <span className={'pill' + (verdictTone === 'change-bad' ? ' amber' : '')}>{verdict} vs ideal</span></> : null}</span>}
+          : !hasGoal
+            ? <span className="pill gray">set a goal to see an estimate</span>
+            : away || proj.status !== 'ok'
+              ? <span className="pill amber">trend moving away — no estimate</span>
+              : <span><b>{proj.rangeLabel}</b>{verdict ? <> · <span className={'pill' + (verdictTone === 'change-bad' ? ' amber' : '')}>{verdict} vs ideal</span></> : null}</span>}
       </div>
     </div>
   );
@@ -156,9 +165,13 @@ function BmiRow({ person, currentKg }: { person: EnrichedMember; currentKg: numb
         <span className="row" style={{ gap: 8 }}><Avatar size={22} color={person.color}>{person.initial}</Avatar>{person.name}</span>
         <span><b>{bmi}</b> <span className="muted small">{cat}</span></span>
       </div>
-      <div style={{ position: 'relative', height: 8, borderRadius: 4, background: 'linear-gradient(90deg,#7fb2e8 0 22%,#2aa897 22% 52%,#e69a3b 52% 78%,#e5786f 78% 100%)' }} />
-      <div style={{ position: 'relative', height: 0 }}>
-        <span style={{ position: 'absolute', left: `${pos}%`, top: -14, transform: 'translateX(-50%)', width: 2, height: 14, background: 'var(--text)' }} />
+      {/* The marker lives inside the bar's own relative box (not a sibling)
+          so its position is anchored directly to the 8px bar regardless of
+          this column's gap — a sibling `height:0` marker container used to
+          get pushed down by that gap, leaving the tick hanging below the
+          bar instead of centered over it. */}
+      <div className="bmi-bar" style={{ position: 'relative', height: 8, borderRadius: 4, background: 'linear-gradient(90deg,#7fb2e8 0 22%,#2aa897 22% 52%,#e69a3b 52% 78%,#e5786f 78% 100%)' }}>
+        <span style={{ position: 'absolute', left: `${pos}%`, top: -3, transform: 'translateX(-50%)', width: 2, height: 14, background: 'var(--text)' }} />
       </div>
       <span className="muted small">Healthy band {lo}–{hi} kg</span>
     </div>
@@ -324,14 +337,14 @@ export default function DashboardBody({ dashboard, series = {}, habitLogs = {}, 
         )}
       </div>
 
-      <StatTiles s={s} days={days} proj={s.projection} verdict={verdict} verdictTone={verdictTone} away={away} />
+      <StatTiles s={s} days={days} proj={s.projection} verdict={verdict} verdictTone={verdictTone} away={away} hasGoal={g.targetKg != null} />
 
       <div className="content-2col">
         <div className="col" style={{ gap: 24 }}>
           <div className="card">
             <WeightChart people={chartPeople} series={series} focusId={focusId} goal={g} away={away} status={STATUS[state].label} enoughData={days >= 14} settings={dashboard.settings} />
           </div>
-          <Progress s={s} days={days} proj={s.projection} verdict={verdict} verdictTone={verdictTone} away={away} />
+          <Progress s={s} days={days} proj={s.projection} verdict={verdict} verdictTone={verdictTone} away={away} hasGoal={g.targetKg != null} />
           <div className="card">
             <div className="section-head" style={{ marginBottom: 16 }}>
               <span className="card-title">Goals</span>

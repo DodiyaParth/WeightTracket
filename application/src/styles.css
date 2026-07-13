@@ -233,7 +233,7 @@ button { font-family: inherit; cursor: pointer; }
 /* Scrolls horizontally rather than squeezing cells below a tappable size —
    see HabitsSection.tsx's per-render minWidth on .streak-grid itself. Safe
    at any viewport: no scrollbar appears at all once the grid already fits. */
-.streak-grid-wrap { overflow-x: auto; }
+.streak-grid-wrap { overflow-x: auto; padding: 2px; }
 .streak-grid { display: grid; grid-template-columns: repeat(28, 1fr); gap: 4px; }
 .streak-cell { aspect-ratio: 1; border-radius: 3px; background: var(--track); }
 .streak-cell.on { background: var(--accent); }
@@ -270,8 +270,15 @@ button { font-family: inherit; cursor: pointer; }
 
 /* segmented role */
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.seg button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: var(--surface); padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: var(--text-2); cursor: pointer; }
+/* white-space: nowrap so a squeezed flex parent (e.g. .invite-row below)
+   clips/wraps the *input* next to it instead of breaking option labels
+   mid-word ("Read only" -> "Rea only"). */
+.seg button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: var(--surface); padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: var(--text-2); cursor: pointer; white-space: nowrap; }
 .seg button.on { background: var(--accent-tint); color: var(--accent-dark); }
+/* The invite-by-email row's role picker must never shrink — .input's
+   `width: 100%` flex-basis already makes it the one element meant to give
+   up space first (see .invite-row below). */
+.invite-row .seg { flex-shrink: 0; }
 
 /* ---------- login ---------- */
 .login {
@@ -580,16 +587,13 @@ button { font-family: inherit; cursor: pointer; }
      of Phase 6 formally covering the rest of the modals. */
   .grid-2 { grid-template-columns: minmax(0, 1fr); }
 
-  /* An unwrapped row's children (check + emoji + label + streak text +
-     rename/delete buttons) sum to more than a narrow phone's width, which —
-     since flex rows never shrink below that sum without wrapping — pushed
-     the whole card (and with it the page) wider than the viewport. Forcing
-     the trailing .habit-row-meta group onto its own full-width line (rather
-     than relying on flex-wrap redistributing individual items, which
-     behaves inconsistently across engines when a flex:1 sibling is involved)
-     fixes it deterministically. */
-  .habit-row { flex-wrap: wrap; }
-  .habit-row-meta { flex: 1 1 100%; justify-content: flex-end; margin-top: 4px; }
+  /* ShareModal's "Invite by email" and CreateDashboard's "Invite someone"
+     rows (email input + role SegRadio + button): the input's own `width:
+     100%` already claims a full line for itself once wrapping is allowed,
+     so the role picker + button naturally settle onto their own line below
+     instead of squeezing (and clipping the SegRadio's text — see .seg
+     above) into one cramped row. */
+  .invite-row { flex-wrap: wrap; }
 }
 
 @media (max-width: 480px) {
@@ -599,12 +603,6 @@ button { font-family: inherit; cursor: pointer; }
      narrow phones — give the button row its own line, right-aligned. */
   .invite-card { flex-wrap: wrap; }
   .invite-card > .row { flex: 1 1 100%; justify-content: flex-end; }
-
-  /* ShareModal's "Invite by email" and CreateDashboard's "Invite someone"
-     rows (email input + role SegRadio + button): the input's own `width:
-     100%` already claims a full line for itself once wrapping is allowed,
-     so the role picker + button naturally settle onto their own line below. */
-  .invite-row { flex-wrap: wrap; }
 
   /* Stack modal footer buttons full-width rather than crowding two buttons
      with longer labels (e.g. "Overwrite 3") onto one narrow row. */

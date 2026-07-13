@@ -32,10 +32,29 @@ export default defineConfig({
   expect: {
     toHaveScreenshot: { maxDiffPixelRatio: 0.02 },
   },
+  // Specs are named by the project(s) they apply to (`*.all.spec.ts`,
+  // `*.mobile.spec.ts`, `*.desktop.spec.ts`) so each project's `testMatch`
+  // only schedules the specs relevant to it — e.g. a mobile-only spec is
+  // never even collected for `desktop`, instead of being collected and then
+  // reported as "skipped". `visual.spec.ts` is the one exception: it's
+  // chromium-only, so it's listed for `desktop`/`mobile` but intentionally
+  // left off `mobile-safari` (see that file's own header comment).
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile', use: { ...devices['Pixel 5'] } },
-    { name: 'mobile-safari', use: { ...devices['iPhone 12'] } },
+    {
+      name: 'desktop',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: ['**/*.all.spec.ts', '**/*.desktop.spec.ts', '**/visual.spec.ts'],
+    },
+    {
+      name: 'mobile',
+      use: { ...devices['Pixel 5'] },
+      testMatch: ['**/*.all.spec.ts', '**/*.mobile.spec.ts', '**/visual.spec.ts'],
+    },
+    {
+      name: 'mobile-safari',
+      use: { ...devices['iPhone 12'] },
+      testMatch: ['**/*.all.spec.ts', '**/*.mobile.spec.ts'],
+    },
   ],
   webServer: {
     command: `npm run dev -- --mode e2e --port ${PORT} --strictPort`,

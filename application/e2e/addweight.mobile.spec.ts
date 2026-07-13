@@ -1,11 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { ROUTES, waitForAppReady, hasNoHorizontalOverflow } from './helpers.js';
 
+// Scoped to the `mobile`/`mobile-safari` projects via playwright.config.ts's
+// per-project `testMatch` — desktop keeps the multi-column layout, so this
+// never runs (and never shows as skipped) there.
 test.describe('add weight responsive layout', () => {
-  test.beforeEach(async ({}, testInfo) => {
-    test.skip(testInfo.project.name === 'desktop', 'this spec is about the mobile collapse; desktop keeps the multi-column layout');
-  });
-
   test('single-entry tab fits the viewport', async ({ page }) => {
     await page.goto(ROUTES.addWeight);
     await waitForAppReady(page);

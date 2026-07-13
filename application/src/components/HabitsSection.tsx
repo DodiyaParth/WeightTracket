@@ -107,12 +107,17 @@ function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, setHabi
                   onBlur={saveEdit}
                 />
               ) : (
-                <span style={{ flex: 1, fontWeight: 500 }}>{h.label}</span>
+                // minWidth: 0 lets this flex:1 label actually shrink below its
+                // text's intrinsic width instead of forcing the whole row
+                // (check + emoji + label + streak/actions) wider than a
+                // narrow phone's viewport; it ellipsizes long labels rather
+                // than wrapping the trailing streak/actions onto a
+                // disconnected second line.
+                <span style={{ flex: 1, fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.label}</span>
               )}
-              {/* Grouped so mobile CSS can force this trailing chunk onto its
-                  own line as a unit, right-aligned, instead of depending on
-                  a flex:1 sibling's wrap behavior (which differs enough
-                  across engines to still overflow on some). */}
+              {/* Grouped so it stays visually attached to the row (streak +
+                  rename/delete as one unit) instead of relying on individual
+                  flex-wrap behavior, which differs enough across engines. */}
               <span className="habit-row-meta">
                 <span className="muted small">🔥 {streak} day{repaired ? ' · repaired' : ''}</span>
                 {!readOnly && !editing && (
@@ -216,7 +221,11 @@ function StreakGrid({ members, habits, logs, meUid, readOnly, dashboardId, teamL
                   illegible slivers — the wrapper scrolls horizontally once
                   that floor no longer fits the viewport. */}
               <div className="streak-grid-wrap">
-                <div className="streak-grid" style={{ gridTemplateColumns: `repeat(${n}, 1fr)`, minWidth: n * 18 }}>
+                {/* minWidth must also cover the (n - 1) 4px gaps between
+                    columns (see .streak-grid's `gap`) — leaving them out
+                    let the grid compute cells narrower than the 18px floor,
+                    which looked squished/cut off instead of tappable. */}
+                <div className="streak-grid" style={{ gridTemplateColumns: `repeat(${n}, 1fr)`, minWidth: n * 18 + (n - 1) * 4 }}>
                   {days.map((date) => {
                     const k = cellKind(h, date);
                     const key = `${h.id}_${date}`;
