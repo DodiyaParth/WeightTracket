@@ -38,7 +38,7 @@ function DashCard({ d, uid, onOpen }: { d: Dashboard; uid: string | undefined; o
       <Sparkline data={spark} color={view ? 'var(--muted)' : 'var(--accent)'} />
       <div className="row between" style={{ alignItems: 'flex-end' }}>
         <div className="row" style={{ gap: 7, alignItems: 'baseline' }}>
-          <ChangeText change={formatChange(-lost)} style={{ fontSize: 26, fontWeight: 600, color: view ? 'var(--text)' : undefined }} />
+          <ChangeText change={formatChange(-lost)} className="num-xl" style={view ? { color: 'var(--text)' } : undefined} />
           <span className="t2 small">together</span>
         </div>
         <AvatarStack members={members} size={28} />

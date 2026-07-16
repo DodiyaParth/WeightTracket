@@ -194,6 +194,15 @@ button { font-family: inherit; cursor: pointer; }
 .change-bad { color: var(--rose); }
 .change-neutral { color: var(--muted); }
 
+/* display-type scale — desktop values match what call sites previously
+   hardcoded inline (e.g. fontSize: 28/26/20/18), so introducing these
+   classes is a no-op above the tablet breakpoint; only the responsive
+   blocks below shrink them. */
+.num-hero { font-size: 28px; font-weight: 600; }
+.num-xl   { font-size: 26px; font-weight: 600; }
+.num-lg   { font-size: 20px; font-weight: 600; }
+.num-md   { font-size: 18px; font-weight: 600; }
+
 /* chart */
 .chart-wrap { width: 100%; }
 .legend { display: flex; gap: 16px; flex-wrap: wrap; }
@@ -518,6 +527,32 @@ button { font-family: inherit; cursor: pointer; }
    to scan. See components/Layout.tsx for the one bit of JS this
    needs (the off-canvas drawer's open/close state).
    ============================================================ */
+@media (max-width: 1024px) {
+  /* ---- tablet: sidebar/shell still desktop-shaped, just tighter and
+     without the fixed 360px goals/BMI rail crowding the main column ---- */
+  .topbar { padding: 20px 24px 16px; }
+  .content { padding: 8px 24px 40px; }
+  .content-2col { grid-template-columns: minmax(0, 1fr); }
+
+  /* HabitsSection's Checklist+StreakGrid pair (same rule the 768px block
+     below applies for phones): a bare `1fr 1fr` grid track's minimum is
+     "auto", i.e. it still won't shrink below its widest child's min-content
+     width. StreakGrid's 28-day view sets an explicit 612px minWidth (see
+     HabitsSection.tsx) specifically so it can scroll horizontally inside
+     its own .streak-grid-wrap — but only once *this* grid can actually
+     shrink to the viewport first. Collapsing to one column at this tier
+     also gives both halves more room, in keeping with dropping the fixed
+     360px goals/BMI rail above. */
+  .grid-2 { grid-template-columns: minmax(0, 1fr); }
+
+  /* ---- dashboards list ----
+     Same bare-1fr-track issue as above: 3 dashboard cards' natural width
+     doesn't fit this tier's available column width, so the grid grows past
+     the viewport instead of wrapping. 2-up (not 1-up — that's the 768px
+     tier below) keeps cards a reasonable size while fitting. */
+  .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 768px) {
   /* ---- app shell: sidebar becomes an off-canvas drawer ---- */
   .hamburger { display: inline-flex; }
@@ -594,10 +629,42 @@ button { font-family: inherit; cursor: pointer; }
      instead of squeezing (and clipping the SegRadio's text — see .seg
      above) into one cramped row. */
   .invite-row { flex-wrap: wrap; }
+
+  /* The person-selector row (DashboardBody's ".seg" chip picker next to the
+     "Showing X's stats..." label) has neither wrap nor scroll by default,
+     so 2+ tracked members with real names overflow the viewport (see
+     .person-focus .seg below). Let the label and chip group stack instead. */
+  .person-focus { flex-wrap: wrap; row-gap: 8px; }
+  .person-focus .seg { max-width: 100%; overflow-x: auto; }
+
+  /* ---- modest typography/spacing downscale ----
+     Desktop's card padding, section gaps and display numbers (28/24/20/18px)
+     are unchanged above this breakpoint (see .num-* base sizes above); only
+     shrink them here, and only modestly — the goal is right-sized, not
+     cramped. */
+  .topbar h1 { font-size: 20px; }
+  .content { gap: 18px; }
+  .card { padding: 16px; }
+  .section-head h2 { font-size: 16px; }
+  .stat-tile .value { font-size: 22px; }
+  .dash-card .stat { font-size: 22px; }
+  .empty { padding: 40px 20px; }
+  .empty h2 { font-size: 18px; }
+  .login-card { padding: 28px; }
+  .login-card h1 { font-size: 22px; }
+  .num-hero { font-size: 24px; }
+  .num-xl { font-size: 22px; }
+  .num-lg { font-size: 18px; }
+  .num-md { font-size: 16px; }
 }
 
 @media (max-width: 480px) {
-  .grid-4 { grid-template-columns: minmax(0, 1fr); }
+  /* 2-up, not 1-up: on a typical 390–430px phone a single full-width stat
+     card wastes most of the screen on whitespace around one number (see
+     the <=360px fallback below for the narrowest phones, where even 2-up
+     gets too tight). */
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat-tile .value { font-size: 20px; }
 
   /* Decline/Accept end up too cramped next to the avatar+text on very
      narrow phones — give the button row its own line, right-aligned. */
@@ -608,4 +675,10 @@ button { font-family: inherit; cursor: pointer; }
      with longer labels (e.g. "Overwrite 3") onto one narrow row. */
   .modal-foot { flex-direction: column-reverse; align-items: stretch; }
   .modal-foot button { width: 100%; justify-content: center; }
+}
+
+@media (max-width: 360px) {
+  /* Narrowest phones: even 2-up stat tiles get too tight once the value
+     text is at its normal weight/size — fall back to 1-up here only. */
+  .grid-4 { grid-template-columns: minmax(0, 1fr); }
 }

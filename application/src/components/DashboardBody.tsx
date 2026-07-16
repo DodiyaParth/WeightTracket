@@ -79,7 +79,7 @@ function StatTiles({ s, days, proj, verdict, verdictTone, away, hasGoal }: Stats
           ? <Tile label="Projected goal" value="—" pill={<span className="pill gray" style={{ marginTop: 4, alignSelf: 'flex-start' }}>set a goal</span>} />
           : away || proj.status !== 'ok'
             ? <Tile label="Projected goal" value="No estimate" pill={<span className="pill amber" style={{ marginTop: 4, alignSelf: 'flex-start' }}>trend moving away</span>} />
-            : <div className="card stat-tile"><span className="label">Projected goal</span><span style={{ fontSize: 18, fontWeight: 600 }}>{proj.rangeLabel}</span>{verdict && <span className={'small ' + verdictTone}>{verdict} vs ideal</span>}</div>}
+            : <div className="card stat-tile"><span className="label">Projected goal</span><span className="num-md">{proj.rangeLabel}</span>{verdict && <span className={'small ' + verdictTone}>{verdict} vs ideal</span>}</div>}
     </div>
   );
 }
@@ -93,7 +93,7 @@ function Progress({ s, days, proj, verdict, verdictTone, away, hasGoal }: StatsP
           <div key={d.window} className="col" style={{ gap: 4 }}>
             <span className="muted small">{d.window}d</span>
             {d.value != null
-              ? <ChangeText change={formatChange(d.value)} style={{ fontSize: 20, fontWeight: 600 }} />
+              ? <ChangeText change={formatChange(d.value)} className="num-lg" />
               : <><Icon name="lock" size={16} color="var(--muted)" /><span className="muted small">need {d.window}d</span></>}
           </div>
         ))}
@@ -324,7 +324,7 @@ export default function DashboardBody({ dashboard, series = {}, habitLogs = {}, 
 
   return (
     <>
-      <div className="row between" style={{ alignItems: 'center' }}>
+      <div className="row between person-focus" style={{ alignItems: 'center' }}>
         <span className="muted small">Showing {focusPerson?.name}’s stats, goal &amp; motivation</span>
         {trackedMembers.length > 1 && (
           <div className="seg">

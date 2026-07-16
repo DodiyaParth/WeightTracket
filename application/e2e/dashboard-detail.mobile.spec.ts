@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { ROUTES, waitForAppReady, hasNoHorizontalOverflow } from './helpers.js';
+import { ROUTES, waitForAppReady, hasNoHorizontalOverflowSettled, waitForStableLayout } from './helpers.js';
 
 // Scoped to the `mobile`/`mobile-safari` projects via playwright.config.ts's
 // per-project `testMatch` — desktop keeps the multi-column layout, so this
@@ -12,10 +12,20 @@ test.describe('dashboard detail responsive layout', () => {
     await page.goto(ROUTES.dashboard);
     await waitForAppReady(page);
     await page.waitForSelector('.streak-grid');
-    expect(await hasNoHorizontalOverflow(page)).toBe(true);
+    // Chart.js's `responsive: true` canvas briefly renders at a stale size
+    // before its own ResizeObserver corrects it to match .chart-wrap — a
+    // transient overflow that self-resolves a moment later (reproduces most
+    // readily on WebKit's timing; see visual.spec.ts's comment on the same
+    // settling behavior). Poll the actual overflow invariant until it holds
+    // steady rather than guessing when Chart.js's resize handshake is done.
+    expect(await hasNoHorizontalOverflowSettled(page)).toBe(true);
   });
 
-  test('stat tiles stack to a single column', async ({ page }) => {
+  // Two-up, not one-up: a single full-width stat card at this width wastes
+  // most of the screen on whitespace around one number (see styles.css's
+  // .grid-4 rule at <=480px, and its <=360px fallback to one column for the
+  // very narrowest phones this project's viewport doesn't hit).
+  test('stat tiles lay out two-up, two rows', async ({ page }) => {
     await page.goto(ROUTES.dashboard);
     await waitForAppReady(page);
     const tiles = page.locator('.stat-tile');
@@ -23,11 +33,16 @@ test.describe('dashboard detail responsive layout', () => {
 
     const first = await tiles.nth(0).boundingBox();
     const second = await tiles.nth(1).boundingBox();
+    const third = await tiles.nth(2).boundingBox();
     expect(first).not.toBeNull();
     expect(second).not.toBeNull();
-    // Same column (same x), stacked below one another (second starts lower).
-    expect(Math.abs((first?.x ?? 0) - (second?.x ?? 0))).toBeLessThan(2);
-    expect(second?.y ?? 0).toBeGreaterThan((first?.y ?? 0) + (first?.height ?? 0) - 2);
+    expect(third).not.toBeNull();
+    // Tile 1 sits beside tile 0 (same row, to its right)...
+    expect(Math.abs((first?.y ?? 0) - (second?.y ?? 0))).toBeLessThan(2);
+    expect((second?.x ?? 0)).toBeGreaterThan((first?.x ?? 0) + (first?.width ?? 0) - 2);
+    // ...while tile 2 starts a new row, back in tile 0's column.
+    expect(Math.abs((first?.x ?? 0) - (third?.x ?? 0))).toBeLessThan(2);
+    expect(third?.y ?? 0).toBeGreaterThan((first?.y ?? 0) + (first?.height ?? 0) - 2);
   });
 
   test('the chart card never forces the page wider than the viewport', async ({ page }) => {
@@ -35,6 +50,9 @@ test.describe('dashboard detail responsive layout', () => {
     await waitForAppReady(page);
     const canvas = page.locator('canvas').first();
     await expect(canvas).toBeVisible();
+    // Same transient Chart.js resize race as the "fits the viewport" test
+    // above — wait for the canvas's own box to settle before measuring it.
+    await waitForStableLayout(page, 'canvas');
     const box = await canvas.boundingBox();
     const viewport = page.viewportSize();
     expect(box).not.toBeNull();
@@ -62,6 +80,23 @@ test.describe('dashboard detail responsive layout', () => {
     expect(box?.width ?? 0).toBeGreaterThanOrEqual(17); // allow a hair of rounding
   });
 
+  // Regression for the person-selector chip row overflowing the viewport:
+  // ".row.between" (no wrap) + ".seg" (white-space: nowrap) used to push the
+  // chip group's right edge past the screen edge once 2+ tracked members'
+  // real names widened it beyond the space left by the "Showing X's
+  // stats..." label. See the `.person-focus` rule in styles.css.
+  test('the person-selector chip row never extends past the viewport', async ({ page }) => {
+    await page.goto(ROUTES.dashboard);
+    await waitForAppReady(page);
+    const seg = page.locator('.person-focus .seg');
+    await expect(seg).toBeVisible();
+    const box = await seg.boundingBox();
+    const viewport = page.viewportSize();
+    expect(box).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((viewport?.width ?? 0) + 1);
+  });
+
   // Regression for the disconnected habit-row layout (DEV feedback #5): the
   // streak/actions meta must stay on the same line as the habit's own label,
   // not wrap onto its own right-aligned row below.
@@ -70,6 +105,7 @@ test.describe('dashboard detail responsive layout', () => {
     await waitForAppReady(page);
     const row = page.locator('.habit-row').first();
     await expect(row).toBeVisible();
+    await waitForStableLayout(page, '.habit-row');
     // Direct children, in DOM order: check button, emoji span, label span,
     // then the .habit-row-meta span — so the label is span index 1.
     const labelBox = await row.locator('> span').nth(1).boundingBox();

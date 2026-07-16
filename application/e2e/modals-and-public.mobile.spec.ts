@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { ROUTES, waitForAppReady, hasNoHorizontalOverflow } from './helpers.js';
+import { ROUTES, waitForAppReady, hasNoHorizontalOverflow, hasNoHorizontalOverflowSettled, waitForStableLayout } from './helpers.js';
 
 // Scoped to the `mobile`/`mobile-safari` projects via playwright.config.ts's
 // per-project `testMatch` — desktop keeps the wider layout, so this never
@@ -67,7 +67,9 @@ test.describe('mobile: modals, dropdown, public view', () => {
     await page.goto(ROUTES.public);
     await page.waitForSelector('.public-top');
     await page.waitForSelector('.streak-grid');
-    expect(await hasNoHorizontalOverflow(page)).toBe(true);
+    // Same transient Chart.js resize race as dashboard-detail.mobile.spec.ts's
+    // "fits the viewport" test — poll the overflow invariant until it settles.
+    expect(await hasNoHorizontalOverflowSettled(page)).toBe(true);
   });
 
   // Regression for the BMI marker hanging below its bar (DEV feedback #6).
@@ -80,6 +82,7 @@ test.describe('mobile: modals, dropdown, public view', () => {
     await page.goto(ROUTES.public);
     await page.waitForSelector('.public-top');
     await page.waitForSelector('.bmi-bar');
+    await waitForStableLayout(page, '.bmi-bar');
     const bar = page.locator('.bmi-bar').first();
     const barBox = await bar.boundingBox();
     const markerBox = await bar.locator('span').first().boundingBox();

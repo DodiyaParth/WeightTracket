@@ -139,7 +139,7 @@ function Single({ uid, existing, onToast }: TabProps) {
         <div>
           <label className="field-label">Weight (kg)</label>
           <div style={{ position: 'relative' }}>
-            <input className="input" inputMode="decimal" placeholder="83.2" value={kg} disabled={busy} onChange={(e) => setKg(e.target.value)} style={{ fontSize: 28, fontWeight: 600, padding: '16px 14px' }} />
+            <input className="input num-hero" inputMode="decimal" placeholder="83.2" value={kg} disabled={busy} onChange={(e) => setKg(e.target.value)} style={{ padding: '16px 14px' }} />
             <span className="muted" style={{ position: 'absolute', right: 16, top: 24 }}>kg</span>
           </div>
         </div>

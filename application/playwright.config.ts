@@ -33,12 +33,13 @@ export default defineConfig({
     toHaveScreenshot: { maxDiffPixelRatio: 0.02 },
   },
   // Specs are named by the project(s) they apply to (`*.all.spec.ts`,
-  // `*.mobile.spec.ts`, `*.desktop.spec.ts`) so each project's `testMatch`
-  // only schedules the specs relevant to it — e.g. a mobile-only spec is
-  // never even collected for `desktop`, instead of being collected and then
-  // reported as "skipped". `visual.spec.ts` is the one exception: it's
-  // chromium-only, so it's listed for `desktop`/`mobile` but intentionally
-  // left off `mobile-safari` (see that file's own header comment).
+  // `*.mobile.spec.ts`, `*.desktop.spec.ts`, `*.tablet.spec.ts`) so each
+  // project's `testMatch` only schedules the specs relevant to it — e.g. a
+  // mobile-only spec is never even collected for `desktop`, instead of being
+  // collected and then reported as "skipped". `visual.spec.ts` is the one
+  // exception: it's chromium-only, so it's listed for `desktop`/`mobile` but
+  // intentionally left off `mobile-safari`/`tablet` (see that file's own
+  // header comment).
   projects: [
     {
       name: 'desktop',
@@ -54,6 +55,14 @@ export default defineConfig({
       name: 'mobile-safari',
       use: { ...devices['iPhone 12'] },
       testMatch: ['**/*.all.spec.ts', '**/*.mobile.spec.ts'],
+    },
+    {
+      // 810px portrait — lands inside the new @media(max-width:1024px)
+      // tablet tier (see styles.css) without also tripping the 768px phone
+      // tier, so this is the one project that actually exercises that band.
+      name: 'tablet',
+      use: { ...devices['iPad (gen 7)'] },
+      testMatch: ['**/*.all.spec.ts', '**/*.tablet.spec.ts'],
     },
   ],
   webServer: {

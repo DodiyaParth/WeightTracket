@@ -54,9 +54,9 @@ export function RoleBadge({ access }: { access: Role }) {
 
 // Renders a formatChange() result with a glyph + word-carrying text, never
 // relying on color alone (see lib/format.js).
-export function ChangeText({ change, style }: { change: ChangeFormat; style?: CSSProperties }) {
+export function ChangeText({ change, style, className }: { change: ChangeFormat; style?: CSSProperties; className?: string }) {
   return (
-    <span className={'change-' + change.tone} style={style} aria-label={change.aria}>
+    <span className={'change-' + change.tone + (className ? ' ' + className : '')} style={style} aria-label={change.aria}>
       <span aria-hidden="true">{change.glyph}</span> {change.text}
     </span>
   );

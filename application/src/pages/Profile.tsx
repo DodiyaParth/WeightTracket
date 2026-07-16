@@ -37,7 +37,7 @@ export default function Profile() {
           <div className="row" style={{ gap: 16 }}>
             <UserAvatar user={{ ...user, photoURL: profile?.photoURL || user.photoURL }} size={64} color={profile?.color || 'var(--accent)'} />
             <div className="col" style={{ gap: 4 }}>
-              <span style={{ fontSize: 18, fontWeight: 600 }}>{profile?.name || user.displayName}</span>
+              <span className="num-md">{profile?.name || user.displayName}</span>
               <span className="muted small">{user.email}{signedInWithGoogle ? ' · signed in with Google' : ' · signed in with email'}</span>
               <span className="pill gray" style={{ marginTop: 6, alignSelf: 'flex-start' }}>Your personal account</span>
             </div>

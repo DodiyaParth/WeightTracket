@@ -98,7 +98,7 @@ function Checklist({ dashboardId, habits, logs, meUid, meName, readOnly, setHabi
               {readOnly
                 ? <span className={'habit-check' + (done ? ' on' : '')}>{done && <Icon name="check" size={16} color="#fff" />}</span>
                 : <button className={'habit-check' + (done ? ' on' : '')} disabled={pending} onClick={() => toggle(h)} aria-label={h.label}>{done && <Icon name="check" size={16} color="#fff" />}</button>}
-              <span style={{ fontSize: 18 }}>{h.emoji}</span>
+              <span className="num-md">{h.emoji}</span>
               {editing ? (
                 <input
                   className="input" style={{ flex: 1, padding: '4px 8px' }} value={editLabel} disabled={editBusy} autoFocus
