@@ -107,6 +107,7 @@ verified by rendering the app in a real browser at real viewport sizes. That's w
 [`playwright.config.ts`](playwright.config.ts) + [`e2e/`](e2e/) are for.
 
 ```bash
+npm run test:e2e:install # download Playwright browsers (included in root `npm run setup`)
 npm run test:e2e       # headless, all projects (desktop, mobile, mobile-safari)
 npm run test:e2e:ui    # Playwright's interactive UI mode — good for debugging one spec
 ```

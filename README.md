@@ -17,12 +17,14 @@ This repo has two independent projects:
 Run everything from the repo root — these scripts delegate to `application/`:
 
 ```bash
-npm run setup    # first time: install application/ dependencies
-npm run dev      # start the app  → http://localhost:5181
-npm run build    # production bundle → application/dist/
-npm test         # unit tests (Vitest)
-npm run preview  # preview the production build
-npm run seed     # seed the default Firestore account (see application/README.md)
+npm run setup            # first time: install dependencies & Playwright browsers
+npm run dev              # start the app  → http://localhost:5181
+npm run build            # production bundle → application/dist/
+npm test                 # unit tests (Vitest)
+npm run test:e2e         # end-to-end tests (Playwright)
+npm run test:e2e:install # install Playwright browsers manually if needed
+npm run preview          # preview the production build
+npm run seed             # seed the default Firestore account (see application/README.md)
 ```
 
 Firebase keys live in `application/.env.local`. See [`application/README.md`](application/README.md) for the

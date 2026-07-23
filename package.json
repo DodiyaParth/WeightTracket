@@ -11,9 +11,10 @@
     "test:coverage": "npm --prefix application run test:coverage",
     "test:e2e": "npm --prefix application run test:e2e",
     "test:e2e:ui": "npm --prefix application run test:e2e:ui",
+    "test:e2e:install": "npm --prefix application run test:e2e:install",
     "typecheck": "npm --prefix application run typecheck",
     "seed": "npm --prefix application run seed",
-    "setup": "npm install && npm --prefix application install",
+    "setup": "npm install && npm --prefix application install && npm run test:e2e:install",
     "prepare": "husky"
   },
   "devDependencies": {

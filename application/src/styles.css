@@ -545,12 +545,13 @@ button { font-family: inherit; cursor: pointer; }
      360px goals/BMI rail above. */
   .grid-2 { grid-template-columns: minmax(0, 1fr); }
 
-  /* ---- dashboards list ----
-     Same bare-1fr-track issue as above: 3 dashboard cards' natural width
-     doesn't fit this tier's available column width, so the grid grows past
-     the viewport instead of wrapping. 2-up (not 1-up — that's the 768px
-     tier below) keeps cards a reasonable size while fitting. */
+  /* ---- dashboards list & stat tiles ----
+     Same bare-1fr-track issue as above: 3 dashboard cards or 4 stat cards
+     don't fit this tier's available column width with a fixed 240px sidebar,
+     so the grid grows past the viewport instead of wrapping. 2-up (not 1-up —
+     that's the 768px tier below) keeps cards a reasonable size while fitting. */
   .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 768px) {

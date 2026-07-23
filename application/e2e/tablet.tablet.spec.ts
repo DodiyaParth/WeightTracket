@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { ROUTES, waitForAppReady, hasNoHorizontalOverflow, hasNoHorizontalOverflowSettled } from './helpers.js';
+import { ROUTES, waitForAppReady, hasNoHorizontalOverflow, hasNoHorizontalOverflowSettled, waitForStableLayout } from './helpers.js';
 
 // Scoped to the `tablet` project via playwright.config.ts's `testMatch`
 // (an 810px-wide iPad preset — inside the new @media(max-width:1024px) tier
@@ -13,6 +13,7 @@ test.describe('tablet: core pages fit the viewport', () => {
     await page.goto(ROUTES.dashboard);
     await waitForAppReady(page);
     await page.waitForSelector('.streak-grid');
+    await waitForStableLayout(page, 'canvas');
     // Poll the overflow invariant until Chart.js's resize handshake settles
     // (see visual.spec.ts and dashboard-detail.mobile.spec.ts for the same race).
     expect(await hasNoHorizontalOverflowSettled(page)).toBe(true);
