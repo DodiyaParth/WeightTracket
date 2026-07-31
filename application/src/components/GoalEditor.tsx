@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Modal, { Confirm } from './Modal.jsx';
+import Modal from './Modal.jsx';
 import Icon, { Avatar } from './Icon.jsx';
 import { useUpdateDashboard } from '../hooks/mutations.js';
 import { memberList } from '../lib/dashboards.js';
@@ -59,26 +59,17 @@ interface GoalEditorProps {
 export default function GoalEditor({ dashboard, series, profiles = {}, onClose }: GoalEditorProps) {
   const members = memberList(dashboard, profiles);
   const [goals, setGoals] = useState<Record<string, Goal>>(() => ({ ...dashboard.goals }));
-  const [team, setTeam] = useState<{ label: string; target: number | string }>(() => ({ label: dashboard.teamGoal?.label || '', target: dashboard.teamGoal?.target || '' }));
-  const [confirmClearTeam, setConfirmClearTeam] = useState(false);
   const { run, busy, error } = useUpdateDashboard();
 
+  // Spreads the existing goal (incl. startISO) so editing a target/date here
+  // never drops the journey start the wizard set — the team goal is derived
+  // (lib/dashboards.deriveTeamGoal), so there's nothing team-related to edit.
   const setGoal = (uid: string, patch: Partial<Goal>) => setGoals((g) => ({ ...g, [uid]: { ...g[uid], ...patch } }));
-  const doSave = async () => {
+  const save = async () => {
     try {
-      await run(dashboard.id, {
-        goals,
-        teamGoal: team.label.trim() ? { label: team.label.trim(), target: Number(team.target) || 10 } : null,
-      });
+      await run(dashboard.id, { goals });
     } catch { return; }
-    setConfirmClearTeam(false);
     onClose();
-  };
-  // Clearing the team-goal label is easy to do by accident while editing —
-  // confirm before actually removing an existing team goal (DEV-12).
-  const save = () => {
-    if (dashboard.teamGoal && !team.label.trim()) { setConfirmClearTeam(true); return; }
-    doSave();
   };
 
   return (
@@ -92,24 +83,8 @@ export default function GoalEditor({ dashboard, series, profiles = {}, onClose }
             <PersonGoal person={m} currentKg={currentWeight(series?.[m.uid] || [])} g={goals[m.uid] || {}} onChange={(p) => setGoal(m.uid, p)} />
           </React.Fragment>
         ))}
-        <div className="divider" />
-        <div className="col" style={{ gap: 12 }}>
-          <div className="row" style={{ gap: 8, fontWeight: 600 }}><Icon name="target" color="var(--accent-dark)" />Shared team goal</div>
-          <div className="grid-2">
-            <div><label className="field-label">Goal</label><input className="input" placeholder="Lose 15 kg together" value={team.label} onChange={(e) => setTeam((t) => ({ ...t, label: e.target.value }))} /></div>
-            <div><label className="field-label">Target (kg combined)</label><input className="input" inputMode="decimal" value={team.target} onChange={(e) => setTeam((t) => ({ ...t, target: e.target.value }))} /></div>
-          </div>
-        </div>
-        <div className="tip"><Icon name="warn" size={16} color="var(--accent-dark)" />A healthy rate is 0.5–1.0 kg/week. We’ll warn on faster targets — but it’s your call.</div>
+        <div className="tip"><Icon name="target" size={16} color="var(--accent-dark)" />The shared team goal adds up everyone’s targets automatically — no need to set it here.</div>
       </div>
-
-      {confirmClearTeam && (
-        <Confirm
-          title="Remove the team goal?" message={`“${dashboard.teamGoal?.label}” will be removed for everyone on this dashboard.`}
-          confirmLabel="Remove" danger busy={busy} error={error}
-          onCancel={() => setConfirmClearTeam(false)} onConfirm={doSave}
-        />
-      )}
     </Modal>
   );
 }

@@ -56,7 +56,7 @@ export async function ensureProfile(authUser: AuthUser): Promise<Profile> {
   if (!s.exists()) {
     const profile = {
       uid: authUser.uid, name: authUser.displayName || 'You', email: authUser.email || '',
-      photoURL: authUser.photoURL || null, heightM: null, createdAt: Date.now(),
+      photoURL: authUser.photoURL || null, heightM: null, dob: null, createdAt: Date.now(),
     };
     await setDoc(ref, profile);
     return profile;
@@ -157,14 +157,13 @@ export async function getDashboard(id: string): Promise<Dashboard | null> {
   return s.exists() ? ({ id: s.id, ...s.data() } as Dashboard) : null;
 }
 
-export async function createDashboard(uid: string, { name, teamGoalLabel, teamGoalTarget }: { name?: string; teamGoalLabel?: string | null; teamGoalTarget?: number | string }): Promise<Dashboard> {
+export async function createDashboard(uid: string, { name }: { name?: string }): Promise<Dashboard> {
   const data = {
     name: name || 'New dashboard', ownerUid: uid, createdAt: Date.now(), updatedAt: Date.now(),
     memberUids: [uid],
     members: { [uid]: { uid, role: 'owner' as const, joinedAt: Date.now() } },
     trackedUids: [uid],
     goals: {},
-    teamGoal: teamGoalLabel ? { label: teamGoalLabel, target: Number(teamGoalTarget) || 10 } : null,
     habits: [],
     public: { enabled: false, token: null },
   };
@@ -370,7 +369,7 @@ async function rebuildPublic(dashboardId: string): Promise<void> {
   }]));
   await setDoc(doc(db, 'publicViews', d.public.token), {
     dashboardId, name: d.name, members, trackedUids: d.trackedUids,
-    goals: d.goals, teamGoal: d.teamGoal, habits: d.habits, series, habitLogs, nsv,
+    goals: d.goals, habits: d.habits, series, habitLogs, nsv,
     enabled: true, updatedAt: Date.now(),
   });
 }

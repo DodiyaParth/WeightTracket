@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { accessFor, collaborating, viewOnly, landingRoute, memberList } from '../dashboards.js';
+import { accessFor, collaborating, viewOnly, landingRoute, memberList, resolveStart, deriveTeamGoal } from '../dashboards.js';
 import { PERSON_COLORS } from '../colors.js';
 
 describe('accessFor — edge cases', () => {
@@ -52,5 +52,101 @@ describe('memberList / sortedMembers — ordering + no members', () => {
     const list = memberList(dash, {});
     expect(list.map((m) => m.uid)).toEqual(['owner1', 'editorA', 'editorB']);
     expect(list[0].color).toBe(PERSON_COLORS[0]);
+  });
+});
+
+describe('resolveStart', () => {
+  it('uses the weigh-in on startISO when present', () => {
+    const entries = [{ date: '2026-01-01', kg: 88 }, { date: '2026-06-01', kg: 84 }];
+    expect(resolveStart({ startISO: '2026-01-01', targetKg: 80 }, entries)).toEqual({ startISO: '2026-01-01', startKg: 88 });
+  });
+  it('returns a null startKg when startISO has no weigh-in (no snapping)', () => {
+    const entries = [{ date: '2026-01-02', kg: 88 }];
+    expect(resolveStart({ startISO: '2026-01-01', targetKg: 80 }, entries)).toEqual({ startISO: '2026-01-01', startKg: null });
+  });
+  it('falls back to the earliest weigh-in for a legacy goal with no startISO', () => {
+    const entries = [{ date: '2026-01-01', kg: 90 }, { date: '2026-02-01', kg: 88 }];
+    expect(resolveStart({ targetKg: 80 }, entries)).toEqual({ startISO: '2026-01-01', startKg: 90 });
+  });
+  it('is all-null with no entries', () => {
+    expect(resolveStart({ targetKg: 80 }, [])).toEqual({ startISO: null, startKg: null });
+  });
+});
+
+describe('deriveTeamGoal', () => {
+  // PRD §4 worked example: Parth 88→80 (loss Δ8, moved 4), Priya 55→58 (gain Δ3, moved 1).
+  const mixedDash = {
+    trackedUids: ['parth', 'priya'],
+    goals: {
+      parth: { startISO: '2026-01-01', targetKg: 80, targetISO: '2026-09-30' },
+      priya: { startISO: '2026-02-01', targetKg: 58, targetISO: '2026-12-31' },
+    },
+  };
+  const mixedSeries = {
+    parth: [{ date: '2026-01-01', kg: 88 }, { date: '2026-06-01', kg: 84 }],
+    priya: [{ date: '2026-02-01', kg: 55 }, { date: '2026-06-01', kg: 56 }],
+  };
+
+  it('sums absolute change across directions and reports the worked example', () => {
+    const tg = deriveTeamGoal(mixedDash, mixedSeries);
+    expect(tg.targetKg).toBe(11);
+    expect(tg.progressKg).toBe(5);
+    expect(tg.pct).toBeCloseTo(5 / 11, 5);
+    expect(tg.direction).toBe('mixed');
+    expect(tg.label).toBe('11 kg of combined change together');
+    expect(tg.targetISO).toBe('2026-12-31'); // the later of the two
+  });
+
+  it('labels an all-loss team "Lose N kg together"', () => {
+    const dash = {
+      trackedUids: ['a', 'b'],
+      goals: { a: { startISO: '2026-01-01', targetKg: 80 }, b: { startISO: '2026-01-01', targetKg: 70 } },
+    };
+    const series = {
+      a: [{ date: '2026-01-01', kg: 88 }],
+      b: [{ date: '2026-01-01', kg: 75 }],
+    };
+    expect(deriveTeamGoal(dash, series).label).toBe('Lose 13 kg together');
+  });
+
+  it('labels an all-gain team "Gain N kg together"', () => {
+    const dash = {
+      trackedUids: ['a', 'b'],
+      goals: { a: { startISO: '2026-01-01', targetKg: 62 }, b: { startISO: '2026-01-01', targetKg: 58 } },
+    };
+    const series = {
+      a: [{ date: '2026-01-01', kg: 58 }],
+      b: [{ date: '2026-01-01', kg: 55 }],
+    };
+    expect(deriveTeamGoal(dash, series).label).toBe('Gain 7 kg together');
+  });
+
+  it('returns null for a solo dashboard (only one member with a goal)', () => {
+    const dash = { trackedUids: ['a', 'b'], goals: { a: { startISO: '2026-01-01', targetKg: 80 } } };
+    const series = { a: [{ date: '2026-01-01', kg: 88 }], b: [{ date: '2026-01-01', kg: 70 }] };
+    expect(deriveTeamGoal(dash, series)).toBeNull();
+  });
+
+  it('excludes members whose start weigh-in is missing', () => {
+    const dash = {
+      trackedUids: ['a', 'b'],
+      goals: { a: { startISO: '2026-01-01', targetKg: 80 }, b: { startISO: '2026-01-01', targetKg: 70 } },
+    };
+    // b's startISO has no matching weigh-in → excluded → only 1 contributor → null
+    const series = { a: [{ date: '2026-01-01', kg: 88 }], b: [{ date: '2026-03-01', kg: 75 }] };
+    expect(deriveTeamGoal(dash, series)).toBeNull();
+  });
+
+  it('clamps a member moving the wrong way to zero progress', () => {
+    const dash = {
+      trackedUids: ['a', 'b'],
+      goals: { a: { startISO: '2026-01-01', targetKg: 80 }, b: { startISO: '2026-01-01', targetKg: 70 } },
+    };
+    const series = {
+      a: [{ date: '2026-01-01', kg: 88 }, { date: '2026-06-01', kg: 90 }], // gained instead of losing
+      b: [{ date: '2026-01-01', kg: 75 }, { date: '2026-06-01', kg: 73 }], // moved 2 of 5
+    };
+    const tg = deriveTeamGoal(dash, series);
+    expect(tg.progressKg).toBe(2); // a contributes 0, b contributes 2
   });
 });

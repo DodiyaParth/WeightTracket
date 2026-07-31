@@ -92,7 +92,7 @@ async function main() {
     const dashboardData = {
       name: d.name, ownerUid: d.ownerUid, createdAt: d.createdAt, updatedAt: d.updatedAt,
       members: d.members, memberUids, trackedUids: d.trackedUids,
-      goals: d.goals || {}, teamGoal: d.teamGoal || null, habits: d.habits || [],
+      goals: d.goals || {}, habits: d.habits || [],
       public: { enabled: false, token: null }, // set below once series/subcollections exist
     };
     bulk.set(db.doc(`dashboards/${d.id}`), dashboardData);
@@ -158,7 +158,7 @@ async function main() {
     await db.doc(`publicViews/${publicDash.public.token}`).set({
       dashboardId: publicDash.id, name: publicDash.name,
       members: publicDash.members, trackedUids: publicDash.trackedUids,
-      goals: publicDash.goals, teamGoal: publicDash.teamGoal, habits: publicDash.habits,
+      goals: publicDash.goals, habits: publicDash.habits,
       series, habitLogs, nsv, enabled: true, updatedAt: Date.now(),
     });
     console.log(`Published public link for "${publicDash.name}" → token ${publicDash.public.token}`);

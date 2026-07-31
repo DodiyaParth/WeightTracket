@@ -286,7 +286,7 @@ export default function HabitsSection({ dashboard, members, logs, meUid, readOnl
     <div className="col" style={{ gap: 14 }}>
       <div className="row between">
         <span className="card-title">Daily habits</span>
-        <span className="muted small">{dashboard.teamGoal?.label ? `The daily behaviors toward “${dashboard.teamGoal.label}”` : 'Daily behaviors toward your goal'}</span>
+        <span className="muted small">Daily behaviors toward your goal</span>
       </div>
       {adding && !readOnly && (
         <div className="col" style={{ gap: 6 }}>
@@ -303,7 +303,7 @@ export default function HabitsSection({ dashboard, members, logs, meUid, readOnl
           dashboardId={dashboard.id} habits={habits} logs={logs} meUid={meUid} meName={meName} readOnly={readOnly} setHabitMark={runSetHabitMark}
           onAddHabit={() => setAdding(true)} onRename={renameHabit} onDelete={deleteHabit}
         />
-        <StreakGrid members={members} habits={habits} logs={logs} meUid={meUid} readOnly={readOnly} dashboardId={dashboard.id} teamLabel={dashboard.teamGoal?.label} setHabitMark={runSetHabitMark} />
+        <StreakGrid members={members} habits={habits} logs={logs} meUid={meUid} readOnly={readOnly} dashboardId={dashboard.id} setHabitMark={runSetHabitMark} />
       </div>
     </div>
   );

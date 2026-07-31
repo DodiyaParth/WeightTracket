@@ -37,7 +37,7 @@ export function ensureProfile(authUser: AuthUser): Promise<Profile> {
   if (!store.profiles[authUser.uid]) {
     store.profiles[authUser.uid] = {
       uid: authUser.uid, name: authUser.displayName || 'You', email: authUser.email || '',
-      photoURL: authUser.photoURL || null, heightM: null,
+      photoURL: authUser.photoURL || null, heightM: null, dob: null,
     };
   } else if (authUser.photoURL && !store.profiles[authUser.uid].photoURL) {
     store.profiles[authUser.uid].photoURL = authUser.photoURL;
@@ -105,14 +105,13 @@ export const getDashboard = (id: string): Promise<Dashboard | null> => {
   return ok(d ? clone(d) : null);
 };
 
-export function createDashboard(uid: string, { name, teamGoalLabel, teamGoalTarget }: { name?: string; teamGoalLabel?: string | null; teamGoalTarget?: number | string }): Promise<Dashboard> {
+export function createDashboard(uid: string, { name }: { name?: string }): Promise<Dashboard> {
   const id = rid('dash');
   const d: Dashboard = {
     id, name: name || 'New dashboard', ownerUid: uid, createdAt: Date.now(), updatedAt: Date.now(),
     members: { [uid]: { uid, role: 'owner', joinedAt: Date.now() } },
     trackedUids: [uid],
     goals: {},
-    teamGoal: teamGoalLabel ? { label: teamGoalLabel, target: Number(teamGoalTarget) || 10 } : null,
     habits: [],
     public: { enabled: false, token: null },
   };
@@ -222,7 +221,7 @@ export function acceptInvite(inviteId: string, authUser: AuthUser): Promise<void
     d = {
       id: inv.dashboardId, name: inv.dashboardName, ownerUid: inv.fromUid, createdAt: Date.now(), updatedAt: Date.now(),
       members: { [inv.fromUid]: { uid: inv.fromUid, role: 'owner', joinedAt: Date.now() } },
-      trackedUids: [inv.fromUid], goals: {}, teamGoal: null, habits: [], public: { enabled: false, token: null },
+      trackedUids: [inv.fromUid], goals: {}, habits: [], public: { enabled: false, token: null },
     };
     store.dashboards.unshift(d);
   }
@@ -267,7 +266,7 @@ export function getPublicView(token: string): Promise<PublicView | null> {
   }]));
   return ok(clone({
     id: d.id, name: d.name, members, trackedUids: d.trackedUids,
-    goals: d.goals, teamGoal: d.teamGoal, habits: d.habits,
+    goals: d.goals, habits: d.habits,
     series, habitLogs: store.habitLogs[d.id] || {}, nsv: store.nsv[d.id] || {},
   }));
 }

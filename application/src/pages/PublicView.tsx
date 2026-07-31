@@ -59,7 +59,6 @@ export default function PublicView() {
     members: snap.members,
     trackedUids: snap.trackedUids,
     goals: snap.goals,
-    teamGoal: snap.teamGoal,
     habits: snap.habits || [],
     public: { enabled: false, token: null },
     settings: {},

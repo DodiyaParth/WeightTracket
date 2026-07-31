@@ -8,6 +8,7 @@ import 'chartjs-adapter-date-fns';
 import annotationPlugin, { type AnnotationOptions } from 'chartjs-plugin-annotation';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { trendSeries, SMOOTHING, projection, currentWeight } from '../lib/stats.js';
+import { resolveStart } from '../lib/dashboards.js';
 import { isoToMs, todayISO, DAY_MS } from '../lib/date.js';
 import type { DashboardSettings, Goal, SeriesPoint } from '../types.js';
 
@@ -81,9 +82,16 @@ export default function WeightChart({ people = [], series = {}, focusId, goal, s
       datasets.push({ label: '_proj', data: [{ x: todayMs, y: lastTrend }, { x: endMs, y: projEnd }], borderColor: withAlpha(focusColor, 0.6), borderWidth: 1.4, borderDash: [2, 4], pointRadius: 0, fill: false });
     }
 
-    // ideal line (focused) — today → target by target date
+    // ideal line (focused) — the planned path from the journey's start
+    // (startISO, startKg) to the target by its date (PRD §5). Falls back to a
+    // today→target segment for a legacy goal whose start weigh-in is missing,
+    // so the line still renders rather than vanishing.
     if (layers.ideal && goal?.targetKg != null && goal?.targetISO) {
-      datasets.push({ label: '_ideal', data: [{ x: todayMs, y: currentWeight(focusEntries) ?? lastTrend }, { x: isoToMs(goal.targetISO), y: goal.targetKg }], borderColor: resolve('var(--muted)'), borderWidth: 1.6, borderDash: [5, 4], pointRadius: 0, fill: false });
+      const { startISO, startKg } = resolveStart(goal, focusEntries);
+      const idealStart = startKg != null && startISO
+        ? { x: isoToMs(startISO), y: startKg }
+        : { x: todayMs, y: currentWeight(focusEntries) ?? lastTrend };
+      datasets.push({ label: '_ideal', data: [idealStart, { x: isoToMs(goal.targetISO), y: goal.targetKg }], borderColor: resolve('var(--muted)'), borderWidth: 1.6, borderDash: [5, 4], pointRadius: 0, fill: false });
     }
 
     // raw daily dots (faint) + trend line, per visible person

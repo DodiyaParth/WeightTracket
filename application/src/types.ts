@@ -10,6 +10,11 @@ export interface Profile {
   email: string;
   photoURL?: string | null;
   heightM: number | null;
+  // Date of birth ('YYYY-MM-DD'), from which age is derived (lib/date.ageFromDob)
+  // — stored rather than a raw age so it never drifts. Required alongside height
+  // before creating/joining a dashboard (enforced in the goal wizard's gate),
+  // not merely to have an account, so it stays nullable here.
+  dob?: string | null;
   // Not stored on the profile doc (membership color is derived per-dashboard),
   // but the UI reads it defensively with a fallback — keep it optional.
   color?: string | null;
@@ -47,19 +52,17 @@ export interface EnrichedMember extends Member {
   initial: string;
 }
 
-// No stored `startKg`: a goal's starting weight is never written by the UI
-// (GoalEditor saves only targetKg/targetISO), so keeping it out of the
-// persisted shape means there's only one source of truth for it — the
-// person's first weigh-in (see DashboardBody.tsx goalFor) — instead of a
-// snapshot that could silently drift from that value over time.
+// `startISO` is the journey's start date; the starting weight itself is NOT
+// stored — it's always the person's weigh-in on `startISO` (see
+// DashboardBody.tsx goalFor / lib/dashboards.resolveStart), so there's one
+// source of truth that can't drift. `startISO` is optional so legacy goals
+// (written before the guided wizard) still type-check; those derive their
+// start from the first weigh-in on read. Direction (loss/gain/maintain) is
+// derived from start-vs-target, never stored.
 export interface Goal {
+  startISO?: string | null;
   targetKg?: number | null;
   targetISO?: string | null;
-}
-
-export interface TeamGoal {
-  label: string;
-  target: number;
 }
 
 export interface Habit {
@@ -134,7 +137,6 @@ export interface Dashboard {
   memberUids?: string[];
   trackedUids: string[];
   goals: Record<string, Goal>;
-  teamGoal: TeamGoal | null;
   habits: Habit[];
   public: PublicLink;
   settings?: DashboardSettings;
@@ -165,7 +167,6 @@ export interface PublicView {
   members: Record<string, PublicMember>;
   trackedUids: string[];
   goals: Record<string, Goal>;
-  teamGoal: TeamGoal | null;
   habits: Habit[];
   series: Record<string, SeriesPoint[]>;
   habitLogs: Record<string, Record<string, HabitLog>>;

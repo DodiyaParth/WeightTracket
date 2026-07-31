@@ -15,7 +15,6 @@ const dashboard = {
   members: { parth: { uid: 'parth', role: 'owner', joinedAt: 1 }, priya: { uid: 'priya', role: 'editor', joinedAt: 2 } },
   trackedUids: ['parth', 'priya'],
   goals: { parth: { targetKg: 80, targetISO: '2026-09-30' } },
-  teamGoal: { label: 'Lose 15 kg together', target: 15 },
 };
 const profiles = {
   parth: { uid: 'parth', name: 'Parth', heightM: 1.78 },
@@ -37,36 +36,33 @@ beforeEach(() => {
 });
 
 describe('GoalEditor', () => {
-  it('renders per-person goals and the existing team goal', () => {
+  it('renders per-person goals (no manual team-goal input — it is derived)', () => {
     renderEditor();
     expect(screen.getByText('Edit goals')).toBeInTheDocument();
     expect(screen.getByText('Parth')).toBeInTheDocument();
     expect(screen.getByText('Priya')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Lose 15 kg together')).toBeInTheDocument();
     expect(screen.getAllByText('Target weight (kg)').length).toBe(2);
+    // The old manual "Shared team goal" input is gone.
+    expect(screen.queryByText('Shared team goal')).not.toBeInTheDocument();
   });
 
-  it('saves goals and closes when the team label is kept', async () => {
+  it('saves only per-person goals (no teamGoal) and closes', async () => {
     const onClose = renderEditor();
     await userEvent.click(screen.getByRole('button', { name: 'Save goals' }));
-    expect(updateDashboard).toHaveBeenCalledWith('d1', expect.objectContaining({
-      teamGoal: { label: 'Lose 15 kg together', target: 15 },
-    }));
+    expect(updateDashboard).toHaveBeenCalledWith('d1', { goals: { parth: { targetKg: 80, targetISO: '2026-09-30' } } });
+    // never writes a teamGoal field
+    expect(updateDashboard.mock.calls[0][1]).not.toHaveProperty('teamGoal');
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('confirms before removing an existing team goal', async () => {
-    const onClose = renderEditor();
-    const teamLabel = screen.getByDisplayValue('Lose 15 kg together');
-    await userEvent.clear(teamLabel);
+  it('preserves a goal’s startISO when only its target is edited', async () => {
+    const dash = { ...dashboard, goals: { parth: { startISO: '2026-01-01', targetKg: 80, targetISO: '2026-09-30' } } };
+    renderWithRouter(<GoalEditor dashboard={dash} series={series} profiles={profiles} onClose={vi.fn()} />);
+    const targetInput = screen.getByDisplayValue('80');
+    await userEvent.clear(targetInput);
+    await userEvent.type(targetInput, '78');
     await userEvent.click(screen.getByRole('button', { name: 'Save goals' }));
-
-    expect(screen.getByText('Remove the team goal?')).toBeInTheDocument();
-    expect(updateDashboard).not.toHaveBeenCalled();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
-    expect(updateDashboard).toHaveBeenCalledWith('d1', expect.objectContaining({ teamGoal: null }));
-    expect(onClose).toHaveBeenCalled();
+    expect(updateDashboard).toHaveBeenCalledWith('d1', { goals: { parth: { startISO: '2026-01-01', targetKg: 78, targetISO: '2026-09-30' } } });
   });
 
   it('shows an error and stays open when the save fails', async () => {
@@ -87,12 +83,11 @@ describe('GoalEditor', () => {
     fireEvent.click(removeButtons[0]);
   });
 
-  it('renders a member with no current weight and no team goal', () => {
-    const noTeam = { ...dashboard, teamGoal: undefined, goals: {} };
+  it('renders a member with no current weight', () => {
+    const noGoals = { ...dashboard, goals: {} };
     // series omitted → currentWeight falls back to [] and current shows as a dash
-    renderWithRouter(<GoalEditor dashboard={noTeam} profiles={profiles} onClose={vi.fn()} />);
+    renderWithRouter(<GoalEditor dashboard={noGoals} profiles={profiles} onClose={vi.fn()} />);
     expect(screen.getAllByText((_, el) => el?.textContent === 'now —').length).toBeGreaterThan(0);
-    expect(screen.queryByDisplayValue('Lose 15 kg together')).not.toBeInTheDocument();
   });
 
   it('edits a target weight and then clears it', async () => {
@@ -102,14 +97,5 @@ describe('GoalEditor', () => {
     expect(targetInput).toHaveValue('');
     await userEvent.type(targetInput, '68');
     expect(targetInput).toHaveValue('68');
-  });
-
-  it('defaults the team target to 10 when the number is blank', async () => {
-    renderEditor();
-    await userEvent.clear(screen.getByDisplayValue('15')); // team target
-    await userEvent.click(screen.getByRole('button', { name: 'Save goals' }));
-    expect(updateDashboard).toHaveBeenCalledWith('d1', expect.objectContaining({
-      teamGoal: { label: 'Lose 15 kg together', target: 10 },
-    }));
   });
 });

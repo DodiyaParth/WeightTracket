@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useRef, useEffect, useId, type ReactNode } from 'react';
+import { createContext, useContext, useState, useRef, useEffect, useId, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from './Icon.jsx';
+import WeightInput from './WeightInput.jsx';
 import { Toast } from './ui.jsx';
 import { useDialogA11y, Confirm } from './Modal.jsx';
 import { useAuthedUser } from '../auth/useAuthedUser.js';
@@ -61,7 +62,6 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }: QuickL
     return () => clearTimeout(t);
   }, []);
 
-  const step = (d: number) => setWeight((w) => Math.max(0, (parseFloat(w) || 0) + d).toFixed(2));
   const chips = [['Today', todayISO()], ['Yesterday', addDays(todayISO(), -1)], ['2 days ago', addDays(todayISO(), -2)]];
 
   const doSave = async (kg: number) => {
@@ -89,8 +89,6 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }: QuickL
     onSaved('Entry deleted');
     onClose();
   };
-  const onKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !busy) save(); };
-
   return (
     <div className="modal-scrim" onClick={onClose}>
       <div
@@ -103,14 +101,7 @@ function QuickLogModal({ entry, uid, lastKg, weights, onClose, onSaved }: QuickL
         </div>
 
         <div className="modal-body" style={{ paddingTop: 6 }}>
-          <div className="weigh-input">
-            <button className="step" onClick={() => step(-0.1)} disabled={busy} aria-label="minus 0.1"><Icon name="minus" size={20} color="var(--text-2)" /></button>
-            <div className="weigh-field">
-              <input ref={weightRef} inputMode="decimal" value={weight} disabled={busy} onChange={(e) => setWeight(e.target.value)} onKeyDown={onKey} onBlur={() => setWeight((+weight || 0).toFixed(2))} aria-label="Weight in kg" />
-              <span className="unit">kg</span>
-            </div>
-            <button className="step" onClick={() => step(0.1)} disabled={busy} aria-label="plus 0.1"><Icon name="plus" size={20} color="var(--text-2)" /></button>
-          </div>
+          <WeightInput ref={weightRef} value={weight} onChange={setWeight} disabled={busy} onEnter={save} />
 
           <div className="row" role="radiogroup" aria-label="Quick date" style={{ gap: 8, marginTop: 18, justifyContent: 'center', flexWrap: 'wrap' }}>
             {chips.map(([label, iso]) => (

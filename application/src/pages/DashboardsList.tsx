@@ -5,21 +5,16 @@ import Icon, { AvatarStack } from '../components/Icon.jsx';
 import { RoleBadge, ChangeText, RetryCard } from '../components/ui.jsx';
 import { Confirm } from '../components/Modal.jsx';
 import Sparkline from '../components/Sparkline.jsx';
-import CreateDashboard from '../components/CreateDashboard.jsx';
+import GoalWizard from '../components/GoalWizard.jsx';
 import { useAuthedUser } from '../auth/useAuthedUser.js';
 import { useDashboards, useInvites, useDashboardSeries, useProfiles } from '../hooks/useData.js';
 import { useAcceptInvite, useDeclineInvite } from '../hooks/mutations.js';
-import { collaborating, viewOnly, accessFor, isEditable, memberList } from '../lib/dashboards.js';
+import { collaborating, viewOnly, accessFor, isEditable, memberList, deriveTeamGoal } from '../lib/dashboards.js';
 import { initials } from '../lib/colors.js';
 import { togetherChange } from '../lib/stats.js';
 import { fmtDate } from '../lib/date.js';
 import { formatChange } from '../lib/format.js';
-import type { AuthUser, Dashboard, Invite, SeriesPoint } from '../types.js';
-
-function teamStat(series: Record<string, SeriesPoint[]> | undefined, trackedUids: string[], target?: number) {
-  const lost = togetherChange(series || {}, trackedUids);
-  return { lost, pct: target ? Math.min(1, Math.max(0, lost / target)) : 0 };
-}
+import type { AuthUser, Dashboard, Invite } from '../types.js';
 
 function DashCard({ d, uid, onOpen }: { d: Dashboard; uid: string | undefined; onOpen: () => void }) {
   const { data: series } = useDashboardSeries(d.id);
@@ -27,9 +22,13 @@ function DashCard({ d, uid, onOpen }: { d: Dashboard; uid: string | undefined; o
   const view = !isEditable(d, uid);
   const tracked = d.trackedUids || [];
   const spark = (series?.[tracked[0]] || []).map((e) => e.kg);
-  const { lost, pct } = teamStat(series, tracked, d.teamGoal?.target);
+  // The big number is the combined change so far (independent of goals); the
+  // label + progress bar come from the derived team goal (null → no team yet).
+  const lost = togetherChange(series || {}, tracked);
+  const teamGoal = deriveTeamGoal(d, series || {});
+  const pct = teamGoal?.pct ?? 0;
   const members = memberList(d, profiles || {});
-  const goalLabel = d.teamGoal?.label || 'No team goal yet';
+  const goalLabel = teamGoal?.label || 'No team goal yet';
 
   return (
     <div className="card dash-card" role="button" tabIndex={0} aria-label={`Open ${d.name}`} onClick={onOpen}
@@ -52,7 +51,7 @@ function DashCard({ d, uid, onOpen }: { d: Dashboard; uid: string | undefined; o
   );
 }
 
-function Invites({ invites, user }: { invites: Invite[] | undefined; user: AuthUser }) {
+function Invites({ invites, user, onAccepted }: { invites: Invite[] | undefined; user: AuthUser; onAccepted: (inv: Invite) => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
   const [decliningInv, setDecliningInv] = useState<Invite | null>(null);
@@ -65,6 +64,9 @@ function Invites({ invites, user }: { invites: Invite[] | undefined; user: AuthU
     setRowError(null);
     try {
       await runAccept(inv.id, user);
+      // Joined — now run the same guided flow to set *their own* goal, which is
+      // what makes the shared team goal derivable (PRD §3, §F).
+      onAccepted(inv);
     } catch {
       setRowError('Couldn’t accept that invite — try again.');
     } finally {
@@ -130,6 +132,7 @@ export default function DashboardsList() {
   const { data: dashboards, loading, error, reload } = useDashboards(user.uid);
   const { data: invites } = useInvites(user.email);
   const [creating, setCreating] = useState(false);
+  const [joinInvite, setJoinInvite] = useState<Invite | null>(null);
 
   const collab = collaborating(dashboards || [], user.uid);
   const views = viewOnly(dashboards || [], user.uid);
@@ -153,7 +156,7 @@ export default function DashboardsList() {
         <RetryCard title="Couldn’t load your dashboards" message="Check your connection and try again." onRetry={reload} />
       )}
 
-      <Invites invites={invites} user={user} />
+      <Invites invites={invites} user={user} onAccepted={setJoinInvite} />
 
       {empty && (
         <div className="empty">
@@ -186,7 +189,16 @@ export default function DashboardsList() {
         </>
       )}
 
-      {creating && <CreateDashboard onClose={() => setCreating(false)} />}
+      {creating && <GoalWizard mode="create" onClose={() => setCreating(false)} />}
+      {joinInvite && (
+        <GoalWizard
+          mode="join"
+          dashboardId={joinInvite.dashboardId}
+          dashboardName={joinInvite.dashboardName}
+          inviterName={joinInvite.fromName}
+          onClose={() => setJoinInvite(null)}
+        />
+      )}
     </Layout>
   );
 }

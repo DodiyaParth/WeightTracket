@@ -14,17 +14,22 @@ export default function Profile() {
   const { data: profile } = useProfile(user.uid);
   const [name, setName] = useState('');
   const [height, setHeight] = useState('');
+  const [dob, setDob] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const { run, busy, error } = useUpdateProfile();
   const signedInWithGoogle = user.providerData?.[0]?.providerId === 'google.com';
 
   useEffect(() => {
-    if (profile) { setName(profile.name || ''); setHeight(profile.heightM ? String(profile.heightM) : ''); }
+    if (profile) {
+      setName(profile.name || '');
+      setHeight(profile.heightM ? String(profile.heightM) : '');
+      setDob(profile.dob || '');
+    }
   }, [profile]);
 
   const save = async () => {
     try {
-      await run(user.uid, { name: name.trim() || 'You', heightM: height ? +height : null });
+      await run(user.uid, { name: name.trim() || 'You', heightM: height ? +height : null, dob: dob || null });
     } catch { return; }
     setToast('Profile saved');
     setTimeout(() => setToast(null), 2200);
@@ -48,7 +53,12 @@ export default function Profile() {
             <div>
               <label className="field-label">Height (m)</label>
               <input className="input" inputMode="decimal" placeholder="e.g. 1.78" value={height} disabled={busy} onChange={(e) => setHeight(e.target.value)} />
-              <p className="muted small" style={{ marginTop: 8 }}>Optional — used to show your BMI and healthy-weight band.</p>
+              <p className="muted small" style={{ marginTop: 8 }}>Used to show your BMI and healthy-weight band, and required before creating or joining a dashboard.</p>
+            </div>
+            <div>
+              <label className="field-label">Date of birth</label>
+              <input className="input" type="date" max={new Date().toISOString().slice(0, 10)} value={dob} disabled={busy} onChange={(e) => setDob(e.target.value)} />
+              <p className="muted small" style={{ marginTop: 8 }}>Also required to create or join a dashboard — used for age-aware guidance, never shared.</p>
             </div>
             {error && <p className="small" style={{ color: 'var(--rose)', margin: 0 }}>{error}</p>}
             <button className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={save} disabled={busy}><Icon name="check" color="#fff" />{busy ? 'Saving…' : 'Save changes'}</button>

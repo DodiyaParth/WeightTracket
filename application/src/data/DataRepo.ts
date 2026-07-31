@@ -25,10 +25,10 @@ export interface DataRepo {
   // ---- dashboards -----------------------------------------------------------
   listDashboards(uid: string): Promise<Dashboard[]>;
   getDashboard(id: string): Promise<Dashboard | null>;
-  createDashboard(
-    uid: string,
-    opts: { name?: string; teamGoalLabel?: string | null; teamGoalTarget?: number | string }
-  ): Promise<Dashboard>;
+  // The team goal is derived (lib/dashboards.deriveTeamGoal), never entered — so
+  // creation just needs a name. The creator's own goal + start weigh-in are set
+  // by the wizard afterward via updateDashboard/addWeight.
+  createDashboard(uid: string, opts: { name?: string }): Promise<Dashboard>;
   updateDashboard(id: string, patch: Partial<Dashboard>): Promise<void>;
   updateMemberRole(id: string, uid: string, role: Role): Promise<void>;
   removeMember(id: string, uid: string): Promise<void>;

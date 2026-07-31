@@ -683,3 +683,9 @@ button { font-family: inherit; cursor: pointer; }
      text is at its normal weight/size — fall back to 1-up here only. */
   .grid-4 { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* goal-setup wizard (components/GoalWizard.tsx) */
+.wizard-progress { display: flex; flex-direction: column; gap: 6px; }
+.wizard-bar { height: 4px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.wizard-bar span { display: block; height: 100%; background: var(--accent); transition: width .2s ease; }
+.wizard-heading { font-size: 18px; font-weight: 600; margin: 0; outline: none; }

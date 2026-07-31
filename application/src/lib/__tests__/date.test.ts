@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { iso, isoToMs, addDays, daysBetween, fuzzyMonth, parseDate, detectDateFormat } from '../date.js';
+import { iso, isoToMs, addDays, daysBetween, fuzzyMonth, parseDate, detectDateFormat, ageFromDob } from '../date.js';
 
 describe('date arithmetic', () => {
   it('iso() formats a Date as YYYY-MM-DD', () => {
@@ -46,5 +46,18 @@ describe('detectDateFormat', () => {
     expect(detectDateFormat(['30/06/2026', '01/02/2026'])).toBe('dmy'); // 30 > 12 → day first
     expect(detectDateFormat(['06/30/2026', '01/15/2026'])).toBe('mdy'); // 30,15 in 2nd field
     expect(detectDateFormat(['01/02/2026', '03/04/2026'])).toBe('dmy'); // ambiguous → dmy
+  });
+});
+
+describe('ageFromDob', () => {
+  it('counts completed years, not started ones', () => {
+    expect(ageFromDob('1990-06-15', '2026-06-30')).toBe(36); // birthday passed this year
+    expect(ageFromDob('1990-07-01', '2026-06-30')).toBe(35); // birthday not yet reached
+    expect(ageFromDob('1990-06-30', '2026-06-30')).toBe(36); // birthday is today
+  });
+  it('returns null for missing or implausible input', () => {
+    expect(ageFromDob(null, '2026-06-30')).toBeNull();
+    expect(ageFromDob('', '2026-06-30')).toBeNull();
+    expect(ageFromDob('2027-01-01', '2026-06-30')).toBeNull(); // future DOB → negative
   });
 });

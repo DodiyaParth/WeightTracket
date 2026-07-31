@@ -50,7 +50,7 @@ describe('Profile', () => {
     await userEvent.clear(name);
     await userEvent.type(name, 'Parth D');
     await userEvent.click(screen.getByRole('button', { name: /save changes/i }));
-    expect(updateProfile).toHaveBeenCalledWith('parth', { name: 'Parth D', heightM: 1.78 });
+    expect(updateProfile).toHaveBeenCalledWith('parth', { name: 'Parth D', heightM: 1.78, dob: null });
     expect(await screen.findByText('Profile saved')).toBeInTheDocument();
   });
 
@@ -72,7 +72,7 @@ describe('Profile', () => {
     renderWithRouter(<Profile />);
     expect(screen.getByText('Parth')).toBeInTheDocument(); // from user.displayName
     await userEvent.click(screen.getByRole('button', { name: /save changes/i }));
-    expect(updateProfile).toHaveBeenCalledWith('parth', { name: 'You', heightM: null });
+    expect(updateProfile).toHaveBeenCalledWith('parth', { name: 'You', heightM: null, dob: null });
   });
 
   it('handles a profile with no height set', () => {

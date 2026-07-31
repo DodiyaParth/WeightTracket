@@ -24,6 +24,19 @@ export const addDays = (s: string, n: number): string => msToISO(isoToMs(s) + n 
 // Whole days from a → b (positive if b is later).
 export const daysBetween = (a: string, b: string): number => Math.round((isoToMs(b) - isoToMs(a)) / DAY_MS);
 
+// Completed years from a 'YYYY-MM-DD' date of birth to `todayIso` — the app
+// stores DOB (stable) and derives age here (drifts otherwise). Returns null for
+// missing/implausible input so callers can treat "no age" the same as "no DOB".
+export function ageFromDob(dobISO: string | null | undefined, todayIso: string = todayISO()): number | null {
+  if (!dobISO) return null;
+  const [by, bm, bd] = String(dobISO).split('-').map(Number);
+  const [ty, tm, td] = String(todayIso).split('-').map(Number);
+  if (!by || !bm || !bd) return null;
+  let age = ty - by;
+  if (tm < bm || (tm === bm && td < bd)) age -= 1; // birthday not yet reached this year
+  return age >= 0 && age < 150 ? age : null;
+}
+
 export function fmtDate(s: string | number): string {
   const ms = typeof s === 'number' ? s : isoToMs(s);
   return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });

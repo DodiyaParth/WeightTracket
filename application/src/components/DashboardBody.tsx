@@ -7,8 +7,8 @@ import { useQuickLog } from './QuickLog.jsx';
 import { Confirm } from './Modal.jsx';
 import { ChangeText } from './ui.jsx';
 import { useAddNsv, useDeleteNsv } from '../hooks/mutations.js';
-import { memberList } from '../lib/dashboards.js';
-import { summarize, currentWeight, spanDays, togetherChange, type Summary, type Projection } from '../lib/stats.js';
+import { memberList, resolveStart, deriveTeamGoal } from '../lib/dashboards.js';
+import { summarize, currentWeight, spanDays, type Summary, type Projection } from '../lib/stats.js';
 import { computeState, STATUS, milestones, milestoneProgress } from '../lib/motivation.js';
 import { bmiValue, bmiCategory, healthyRange, isSafePace, goalProgress, verdictVsIdeal } from '../lib/health.js';
 import { fmtDate, todayISO } from '../lib/date.js';
@@ -18,16 +18,15 @@ import type { Dashboard, EnrichedMember, Goal, HabitLog, Nsv, Profile, SeriesPoi
 // A dashboard's per-person goal resolved for display: stored goal fields with a
 // starting weight backfilled from the first weigh-in when unset. Shape-compatible
 // with the domain Goal so it can flow into summarize/computeState unchanged.
-type ResolvedGoal = { startKg: number | null; targetKg: number | null; targetISO: string | null };
+type ResolvedGoal = { startISO: string | null; startKg: number | null; targetKg: number | null; targetISO: string | null };
 
 function goalFor(dashboard: Dashboard, series: Record<string, SeriesPoint[]>, uid: string): ResolvedGoal {
   const g: Goal = dashboard.goals?.[uid] || {};
-  const entries = series[uid] || [];
-  // No stored startKg (see types.ts Goal) — the baseline is always the
-  // person's first weigh-in, so it can never drift from what's actually on
-  // the chart.
-  const startKg = entries[0]?.kg ?? null;
-  return { startKg, targetKg: g.targetKg ?? null, targetISO: g.targetISO ?? null };
+  // No stored startKg (see types.ts Goal) — resolveStart reads it from the
+  // weigh-in on the goal's startISO, or the first weigh-in for legacy goals,
+  // so it can never drift from what's actually on the chart.
+  const { startISO, startKg } = resolveStart(g, series[uid]);
+  return { startISO, startKg, targetKg: g.targetKg ?? null, targetISO: g.targetISO ?? null };
 }
 
 interface TileProps {
@@ -247,19 +246,24 @@ function Wins({ dashboard, focusId, notes, canAdd }: WinsProps) {
   );
 }
 
+// Auto-derived, read-only (PRD §8) — there is no team-goal input anywhere.
+// Renders only at ≥2 members with goals (deriveTeamGoal returns null otherwise),
+// and owns its own leading divider so the Goals card stays tidy when it's absent.
 function TeamGoal({ dashboard, series }: { dashboard: Dashboard; series: Record<string, SeriesPoint[]> }) {
-  const tg = dashboard.teamGoal;
+  const tg = deriveTeamGoal(dashboard, series);
   if (!tg) return null;
-  const lost = togetherChange(series, dashboard.trackedUids || []);
-  const pct = tg.target ? Math.min(1, Math.max(0, lost / tg.target)) : 0;
   return (
-    <div className="col" style={{ gap: 9 }}>
-      <div className="row between">
-        <span className="row" style={{ gap: 8, fontWeight: 600 }}><Icon name="target" color="var(--accent-dark)" />Team goal · {tg.label}</span>
-        <span className="t2 small">{lost} / {tg.target} kg</span>
+    <>
+      <div className="divider" />
+      <div className="col" style={{ gap: 9 }}>
+        <div className="row between">
+          <span className="row" style={{ gap: 8, fontWeight: 600 }}><Icon name="target" color="var(--accent-dark)" />Team goal · {tg.label}</span>
+          <span className="t2 small">{tg.progressKg} / {tg.targetKg} kg</span>
+        </div>
+        <div className="progress"><span style={{ width: `${tg.pct * 100}%` }} /></div>
+        <span className="muted small">This adds up each person’s goal — it updates as you each log.</span>
       </div>
-      <div className="progress"><span style={{ width: `${pct * 100}%` }} /></div>
-    </div>
+    </>
   );
 }
 
@@ -313,7 +317,7 @@ export default function DashboardBody({ dashboard, series = {}, habitLogs = {}, 
   // reflect what it actually means — "behind" must never render with the
   // same "good" styling as "ahead" (DEV-32).
   const verdictKey = dated && days >= 14
-    ? verdictVsIdeal({ startKg: g.startKg, startISO: focusEntries[0]?.date, targetKg: g.targetKg, targetISO: g.targetISO, currentKg: (s.trend ?? s.current)! })
+    ? verdictVsIdeal({ startKg: g.startKg, startISO: g.startISO ?? focusEntries[0]?.date, targetKg: g.targetKg, targetISO: g.targetISO, currentKg: (s.trend ?? s.current)! })
     : null;
   const verdict = verdictKey ? STATUS[verdictKey].label : null;
   const verdictTone = verdictKey === 'ahead' ? 'change-good' : verdictKey === 'behind' ? 'change-bad' : 'change-neutral';
@@ -352,7 +356,6 @@ export default function DashboardBody({ dashboard, series = {}, habitLogs = {}, 
             </div>
             <div className="col" style={{ gap: 18 }}>
               {trackedMembers.map((p) => <GoalRow key={p.uid} person={p} g={goalFor(dashboard, series, p.uid)} currentKg={currentWeight(series[p.uid] || [])} />)}
-              {dashboard.teamGoal && <div className="divider" />}
               <TeamGoal dashboard={dashboard} series={series} />
             </div>
           </div>

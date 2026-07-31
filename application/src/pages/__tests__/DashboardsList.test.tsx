@@ -6,7 +6,7 @@ import { renderWithRouter, userEvent } from '../../test/test-utils.jsx';
 vi.mock('../../components/Layout.jsx', () => ({
   default: ({ title, primary, children }) => <div><h1>{title}</h1><div>{primary}</div>{children}</div>,
 }));
-vi.mock('../../components/CreateDashboard.jsx', () => ({ default: () => <div>CREATE MODAL</div> }));
+vi.mock('../../components/GoalWizard.jsx', () => ({ default: () => <div>CREATE MODAL</div> }));
 
 let authValue;
 let dashboardsState;

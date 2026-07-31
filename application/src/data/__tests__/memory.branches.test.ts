@@ -42,16 +42,17 @@ describe('memory — empty/unknown fallbacks (defensive branches)', () => {
 });
 
 describe('memory — dashboard create defaults + unknown-id guards', () => {
-  it('createDashboard defaults the name and builds a team goal from label/target', async () => {
+  it('createDashboard defaults the name and starts with empty goals (team goal is derived)', async () => {
     const noName = await repo.createDashboard(UID, {});
     expect(noName.name).toBe('New dashboard');
-    expect(noName.teamGoal).toBeNull();
+    expect(noName.goals).toEqual({});
+    // No manual team goal is stored anymore — it's derived on read.
+    expect(noName).not.toHaveProperty('teamGoal');
 
-    const withGoal = await repo.createDashboard(UID, { name: 'Team', teamGoalLabel: 'Lose 10', teamGoalTarget: '5' });
-    expect(withGoal.teamGoal).toEqual({ label: 'Lose 10', target: 5 });
-
-    const badTarget = await repo.createDashboard(UID, { name: 'Team2', teamGoalLabel: 'Lose', teamGoalTarget: 'abc' });
-    expect(badTarget.teamGoal.target).toBe(10); // Number('abc') || 10
+    const named = await repo.createDashboard(UID, { name: 'Team' });
+    expect(named.name).toBe('Team');
+    expect(named.ownerUid).toBe(UID);
+    expect(named.members[UID].role).toBe('owner');
   });
 
   it('updateDashboard / updateMemberRole / removeMember no-op for unknown ids', async () => {

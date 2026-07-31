@@ -5,8 +5,8 @@ weight loss together. Each person owns their personal data in their own account;
 through shared **dashboards** that track goals, timelines, and habits. Hosted as a static site with
 no server to maintain.
 
-**Status:** Requirements finalized — ready for build planning · design-review revisions 2026-06-30 (navigation & landing §11, habits-in-dashboard §5, **self-only weight logging §3**, no theme picker §6.5)
-**Last updated:** 2026-06-30
+**Status:** Requirements finalized — ready for build planning · design-review revisions 2026-06-30 (navigation & landing §11, habits-in-dashboard §5, **self-only weight logging §3**, no theme picker §6.5) · 2026-07-31 **guided goal setup + auto-derived team goal** (§6.3, `prd-guided-goal-setup.md`)
+**Last updated:** 2026-07-31
 **Disclaimer:** Health guidance in this app is general information, not medical advice.
 
 ---
@@ -35,7 +35,7 @@ no server to maintain.
 | Read access   | Granted to specific Google accounts **or** via a special **read-only link (no login)** |
 | People        | **Open-ended** — any number of users; each owns their account |
 | Health stats  | **Full** — height (m) → BMI, healthy band, unsafe-pace warnings |
-| Goals         | **Per-person, date optional** + a **shared team goal** — held in the dashboard |
+| Goals         | **Per-person guided setup** — start date + start weight, target weight (healthy-range helper) and target date (pace helper); works for **loss / gain / maintenance**. The **team goal is auto-derived** from members' goals — no manual entry (§6.3, `prd-guided-goal-setup.md`) |
 | Habits        | **Daily checklist inside each dashboard** — add items, check off & view streaks within the dashboard; no global habits page (§5) |
 | Motivation    | **Full engine** — state messages, milestones, forgiving streaks, NSV notes, couple prompts |
 | Look & feel   | **Light, clean & airy** — whitespace, one calm accent color |
@@ -50,7 +50,7 @@ Two clearly separated entities.
 
 ### 3.1 Person / Account data (owned by each logged-in user)
 Lives in the signed-in user's own account.
-- Profile: **name, height (m)**, other personal info.
+- Profile: **name, height (m), date of birth** — height + DOB are **required before creating or joining a dashboard** (used for the healthy-range / goal helpers, §6.3; age is derived from DOB) — plus other personal info.
 - **Weight history:** dated weight entries (a weight per date) + related info.
 - **Only the owner can add or edit their own weight** — there is no logging weight on behalf of anyone else.
 - Each logged-in user keeps their personal information in their own account.
@@ -59,7 +59,7 @@ Lives in the signed-in user's own account.
 A dashboard ties multiple people together around shared goals.
 - **Members:** the users in the dashboard, each with a role — **edit** (can change dashboard-level data: goals, habits, members, sharing) or **read**. *(Editing weight is never granted here — weight is self-only, §3.3.)*
 - **Tracked people:** references to the member accounts whose weight data the dashboard displays.
-- **Targets & timelines:** per-person goals (target weight, optional target date) + the shared team goal.
+- **Targets & timelines:** per-person goals — **start date + start weight, target weight, target date**, and a **derived direction (loss/gain/maintain)**. The **shared team goal is derived** from members' goals (not stored or hand-entered — §6.3).
 - **Daily checklist:** habit items + their daily completion log (see §5).
 - **Sharing settings:** Google accounts granted read/edit + a tokenized public **read-only link**.
 
@@ -141,7 +141,7 @@ A dashboard ties multiple people together around shared goals.
 - **Switchable layers:**
   - **Projected trend** — recent slope extrapolated forward; hedged honestly (a range, or "unknown"
     if the trend moves away from the goal). No falsely precise single date.
-  - **Ideal line to follow** — from today's weight to the target weight by the target date.
+  - **Ideal line to follow** — from the journey **start (start date + start weight)** to the target weight by the target date (any direction — down, up, or flat).
   - **Goal line** — with a ± band so daily noise doesn't flip "reached goal" on and off.
 - **Configurable date range**; pinch-zoom / pan on mobile.
 
@@ -151,12 +151,24 @@ A dashboard ties multiple people together around shared goals.
 - Projected goal date; on-track / ahead / behind status vs the ideal line.
 - BMI + healthy-weight band per person (height optional → BMI shown only if a height is entered).
 
-### 6.3 Goals (held in the dashboard)
-- **Per-person goal, target date optional:**
-  - *With a date* → draw the ideal descent line + run a pace check (on track / ahead / behind).
-  - *Without a date* → compute a realistic ETA at a safe pace.
-- **Shared team goal** — a combined collaborative goal (e.g. "together lose 15 kg" or "both log
-  12 weeks straight") alongside each person's own goal.
+### 6.3 Goals — guided per-person setup (held in the dashboard)
+Setting a goal is a **guided flow** at dashboard creation (and for each member who joins), captured
+per person. Full spec: `prd-guided-goal-setup.md`.
+- **Start date + start weight.** The journey has an explicit **start date** (any date up to today —
+  no future). The **start weight** is the person's weigh-in on that date: auto-filled if already
+  logged, otherwise entered (and saved as a normal self-only weigh-in). Start weight stays *derived*
+  from that entry — not a separate stored copy.
+- **Direction is auto-detected** from start vs target — **loss / gain / maintenance**. All goal logic
+  (pace, ideal line, warnings, motivation) must work in every direction; **never assume loss.**
+- **Target weight — with a healthy-range helper.** From the person's height, suggest their healthy
+  band (BMI 18.5–24.9 → kg) and flag targets outside it (gentle, never blocking).
+- **Target date — with a pace helper.** Suggest a date at a safe **0.5 kg/week**; if the user changes
+  it, show the **rate that date implies** and whether it's within the safe range (§6.6).
+  - *With a date* → ideal line (start → target) + pace check (on track / ahead / behind).
+  - *Without a date* → realistic ETA at a safe pace. *Maintenance* → hold within a ± band over a horizon.
+- **Shared team goal is auto-derived** from members' individual goals (appears once ≥2 members have
+  goals): **N = `Σ |target − start|` across all members** (any direction) — same-direction → "together
+  {lose|gain} N kg"; mixed → "N kg of combined change". **Removed:** the old manual team-goal + combined-kg entry.
 
 ### 6.4 Motivation Engine
 - **Trend-driven state machine** with warm, self-compassionate copy, debounced so it doesn't flip
@@ -183,7 +195,10 @@ A dashboard ties multiple people together around shared goals.
   picker — the app keeps one fixed calm accent.)*
 
 ### 6.6 Safety
-- Safe-pace logic: healthy loss is **0.5–1.0 kg/week**; warn when a goal implies an unsafe pace.
+- Safe-pace logic applies to **loss and gain**: healthy change is **0.5–1.0 kg/week**; warn when a
+  goal's date implies a faster pace (> ~1 kg/week or > 1%/week).
+- **Target-weight guidance:** suggest the healthy-weight band and warn on out-of-range targets
+  (underweight for a loss goal, overshoot for a gain goal) — guidance, never a block.
 - "Not medical advice" disclaimer surfaced in the UI.
 
 ---
@@ -207,6 +222,8 @@ A dashboard ties multiple people together around shared goals.
 ## 8. Health Reference (to encode, with disclaimer)
 
 - **Safe loss rate:** 0.5–1.0 kg/week (CDC/NHS); flag faster than ~1 kg/week or >1%/week as aggressive.
+- **Gain:** lean-gain pace — suggest **0.25 kg/week**, warn above **0.5**. **Maintenance** = hold within
+  a ±1–2 kg band, no target rate.
 - **Daily fluctuation:** ±1–2 kg from water/sodium/food/glycogen/hormones — fat does not change
   overnight → trend line over raw weight.
 - **Weigh-in:** morning, after toilet, before eating/dressing, same conditions.

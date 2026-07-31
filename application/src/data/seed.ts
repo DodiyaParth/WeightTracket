@@ -12,15 +12,17 @@ export const DEMO_UID = 'parth';
 
 // Profile data only — no `color`: dashboard-membership color is derived from
 // join order at render time (see lib/dashboards.js memberList), never stored.
-type Person = { uid: string; name: string; email: string; heightM: number };
+// `dob` seeds a complete profile so the demo/e2e user (parth) skips the goal
+// wizard's DOB+height gate on the common path.
+type Person = { uid: string; name: string; email: string; heightM: number; dob: string };
 
 const PEOPLE: Record<string, Person> = {
-  parth: { uid: 'parth', name: 'Parth', email: 'parth@weighttracker.app', heightM: 1.78 },
-  priya: { uid: 'priya', name: 'Priya', email: 'priya@weighttracker.app', heightM: 1.63 },
-  arjun: { uid: 'arjun', name: 'Arjun', email: 'arjun@weighttracker.app', heightM: 1.80 },
-  sara: { uid: 'sara', name: 'Sara', email: 'sara@weighttracker.app', heightM: 1.66 },
-  mom: { uid: 'mom', name: 'Mom', email: 'mom@weighttracker.app', heightM: 1.60 },
-  dad: { uid: 'dad', name: 'Dad', email: 'dad@weighttracker.app', heightM: 1.74 },
+  parth: { uid: 'parth', name: 'Parth', email: 'parth@weighttracker.app', heightM: 1.78, dob: '1990-04-12' },
+  priya: { uid: 'priya', name: 'Priya', email: 'priya@weighttracker.app', heightM: 1.63, dob: '1992-08-03' },
+  arjun: { uid: 'arjun', name: 'Arjun', email: 'arjun@weighttracker.app', heightM: 1.80, dob: '1988-11-20' },
+  sara: { uid: 'sara', name: 'Sara', email: 'sara@weighttracker.app', heightM: 1.66, dob: '1994-02-15' },
+  mom: { uid: 'mom', name: 'Mom', email: 'mom@weighttracker.app', heightM: 1.60, dob: '1965-06-10' },
+  dad: { uid: 'dad', name: 'Dad', email: 'dad@weighttracker.app', heightM: 1.74, dob: '1962-09-25' },
 };
 
 interface GenOpts { days?: number; gaps?: number[][] }
@@ -68,7 +70,6 @@ const dashboards: Dashboard[] = [
       parth: { targetKg: 80.0, targetISO: '2026-09-30' },
       priya: { targetKg: 66.0, targetISO: null },
     },
-    teamGoal: { label: 'Lose 15 kg together', target: 15 },
     habits: [
       { id: 'h1', label: '10k steps', emoji: '🚶' },
       { id: 'h2', label: 'No sugar', emoji: '🍬' },
@@ -82,7 +83,6 @@ const dashboards: Dashboard[] = [
     members: membersMap(member('arjun', 'owner', 40), member('parth', 'editor', 30), member('sara', 'editor', 28)),
     trackedUids: ['arjun', 'parth', 'sara'],
     goals: { parth: { targetKg: 84, targetISO: null } },
-    teamGoal: { label: '12-week logging streak', target: 12 },
     habits: [{ id: 'h1', label: 'Run', emoji: '🏃' }, { id: 'h2', label: 'Stretch', emoji: '🧘' }],
     public: { enabled: false, token: null },
   },
@@ -90,7 +90,7 @@ const dashboards: Dashboard[] = [
     id: 'd5', name: 'Summer cut', ownerUid: 'sara', createdAt: ago(30), updatedAt: ago(4),
     members: membersMap(member('sara', 'owner', 30), member('parth', 'editor', 20)),
     trackedUids: ['sara', 'parth'],
-    goals: {}, teamGoal: { label: 'Lose 8 kg together', target: 8 },
+    goals: {},
     habits: [{ id: 'h1', label: 'No late snacks', emoji: '🌙' }],
     public: { enabled: false, token: null },
   },
@@ -99,7 +99,6 @@ const dashboards: Dashboard[] = [
     members: membersMap(member('mom', 'owner', 50), member('dad', 'editor', 48), member('parth', 'viewer', 20)),
     trackedUids: ['mom', 'dad'],
     goals: { mom: { targetKg: 70, targetISO: null } },
-    teamGoal: { label: 'Reach a healthy BMI', target: 8 },
     habits: [{ id: 'h1', label: 'Morning walk', emoji: '🚶' }],
     public: { enabled: false, token: null },
   },
@@ -107,7 +106,7 @@ const dashboards: Dashboard[] = [
     id: 'd4', name: 'Sister squad', ownerUid: 'sara', createdAt: ago(35), updatedAt: ago(9),
     members: membersMap(member('sara', 'owner', 35), member('priya', 'editor', 33), member('arjun', 'editor', 30), member('parth', 'viewer', 15)),
     trackedUids: ['sara', 'priya', 'arjun'],
-    goals: {}, teamGoal: { label: 'Move every day', target: 30 },
+    goals: {},
     habits: [{ id: 'h1', label: 'Move 30 min', emoji: '💪' }],
     public: { enabled: false, token: null },
   },

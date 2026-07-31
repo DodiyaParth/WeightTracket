@@ -185,9 +185,22 @@ describe('DashboardBody — goal rows & team goal branches', () => {
     expect(screen.getAllByText(/→/).length).toBeGreaterThan(0);
   });
 
-  it('renders a team goal with a zero target (0% progress)', () => {
-    renderCustom({ dashboard: solo({ me: { targetKg: 80 } }, { label: 'Team', target: 0 }), series: { me: makeSeries(85, 20) } });
-    expect(screen.getByText(/Team goal · Team/)).toBeInTheDocument();
+  it('renders the derived team goal when ≥2 members have goals', () => {
+    const pair = {
+      id: 'dP', name: 'Pair', ownerUid: 'me',
+      members: { me: { uid: 'me', role: 'owner', joinedAt: 1 }, you: { uid: 'you', role: 'editor', joinedAt: 2 } },
+      trackedUids: ['me', 'you'],
+      goals: { me: { targetKg: 80 }, you: { targetKg: 65 } }, habits: [],
+    };
+    // Flat series → startKg is each member's constant weight; 8 kg + 7 kg of
+    // planned loss add up automatically to the derived "Lose 15 kg together".
+    renderCustom({ dashboard: pair, series: { me: makeFlat(88, 20), you: makeFlat(72, 20) }, profiles: { me: { name: 'Me', heightM: 1.8 }, you: { name: 'You', heightM: 1.7 } } });
+    expect(screen.getByText('Team goal · Lose 15 kg together')).toBeInTheDocument();
+  });
+
+  it('hides the team goal on a solo dashboard (a personal journey until someone joins)', () => {
+    renderCustom({ dashboard: solo({ me: { targetKg: 80 } }), series: { me: makeFlat(88, 20) } });
+    expect(screen.queryByText(/Team goal ·/)).not.toBeInTheDocument();
   });
 });
 
